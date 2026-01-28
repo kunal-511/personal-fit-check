@@ -107,6 +107,21 @@ export const workoutsApi = {
       body: JSON.stringify(data),
     }),
 
+  // Set operations
+  updateSet: (setId: number, data: { reps?: number; weight_kg?: number; rpe?: number }) =>
+    fetcher<{ success: boolean; set: { id: number; reps: number; weight_kg: number; rpe: number | null } }>(
+      `/workouts/sets/${setId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    ),
+
+  deleteSet: (setId: number) =>
+    fetcher<{ success: boolean }>(`/workouts/sets/${setId}`, {
+      method: "DELETE",
+    }),
+
   // Cardio sessions
   getCardioSessions: (limit?: number) =>
     fetcher<{ sessions: CardioSession[] }>(

@@ -1,13 +1,13 @@
 "use client"
 
 import { useEffect } from "react"
-import { Heart, Scale, Moon, Activity, TrendingDown, TrendingUp, Camera, Plus } from "lucide-react"
+import { Heart, Scale, Moon, Activity, TrendingDown, TrendingUp, Plus } from "lucide-react"
 import Link from "next/link"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
-import { BodyMetricsChart, SleepChart, RecoveryScoreDisplay } from "@/components/health"
+import { BodyMetricsChart, SleepChart, RecoveryScoreDisplay, ProgressPhotosGallery } from "@/components/health"
 import { useHealthStore, getRecoveryRecommendation } from "@/lib/health-store"
 import { cn } from "@/lib/utils"
 
@@ -245,25 +245,7 @@ export default function HealthPage() {
       />
 
       {/* Progress Photos */}
-      <GlassCard className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold">Progress Photos</h2>
-          <Button variant="outline" size="sm">
-            <Camera className="mr-2 h-4 w-4" />
-            Add Photo
-          </Button>
-        </div>
-
-        <div className="flex h-32 items-center justify-center rounded-lg bg-secondary/30">
-          <div className="text-center">
-            <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-50" />
-            <p className="text-sm text-muted-foreground">No progress photos yet</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Coming soon: Track your visual progress
-            </p>
-          </div>
-        </div>
-      </GlassCard>
+      <ProgressPhotosGallery />
     </div>
   )
 }

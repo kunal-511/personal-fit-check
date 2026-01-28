@@ -67,6 +67,7 @@ components/
 
 lib/
 ├── db.ts                    # PostgreSQL client (postgres.js)
+├── r2.ts                    # Cloudflare R2 storage client
 ├── api.ts                   # API client functions
 ├── store.ts                 # Zustand stores
 └── utils.ts                 # cn() helper, formatters
@@ -119,6 +120,8 @@ Key tables in `db/schema.sql`:
 - `GET/POST /api/workouts/cardio` - Cardio session tracking
 - `GET/POST /api/health/body` - Body measurements
 - `GET/POST /api/health/recovery` - Recovery scores
+- `GET/POST /api/health/photos` - Progress photos (upload/list)
+- `GET/DELETE /api/health/photos/[id]` - Single photo operations
 
 ## AI Food Parsing (Cloudflare AI)
 
@@ -146,3 +149,28 @@ The app uses Cloudflare Workers AI (free tier) for intelligent food parsing.
 - "protein shake"
 
 Falls back to keyword-based parsing if AI is not configured.
+
+## Progress Photos (Cloudflare R2)
+
+The app uses Cloudflare R2 (S3-compatible) for storing progress photos.
+
+**Setup Cloudflare R2:**
+1. Go to https://dash.cloudflare.com/
+2. Navigate to R2 -> Create bucket
+3. Enable public access for the bucket (for direct URLs)
+4. Go to R2 -> Manage R2 API Tokens -> Create API Token
+5. Add to `.env.local`:
+   ```
+   CLOUDFLARE_R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com
+   CLOUDFLARE_R2_ACCESS_KEY_ID=your_r2_access_key_id
+   CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+   CLOUDFLARE_R2_BUCKET_NAME=fitness-tracker
+   CLOUDFLARE_R2_PUBLIC_URL=https://pub-<hash>.r2.dev
+   ```
+
+**Features:**
+- Drag-and-drop photo upload
+- Categories: front, side, back views
+- Timeline gallery with horizontal scroll
+- Lightbox with keyboard navigation
+- Photos stored in `progress-photos/` prefix

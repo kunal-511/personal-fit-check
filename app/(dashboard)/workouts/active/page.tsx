@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, Suspense } from "react"
-import { ArrowLeft, Check, Plus, Trophy, History, Loader2, X, Trash2 } from "lucide-react"
+import { ArrowLeft, Check, Plus, Trophy, History, Loader2, X, Trash2, Pencil } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { GlassCard } from "@/components/ui/card"
@@ -100,6 +100,9 @@ function ActiveWorkoutContent() {
   const [personalRecords, setPersonalRecords] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [initialized, setInitialized] = useState(false)
+  const [editingSet, setEditingSet] = useState<{ exerciseIndex: number; setIndex: number } | null>(null)
+  const [editWeight, setEditWeight] = useState("")
+  const [editReps, setEditReps] = useState("")
 
   // Initialize workout based on template or store
   useEffect(() => {
@@ -264,6 +267,55 @@ function ActiveWorkoutContent() {
 
   const handleSkipRest = () => {
     setShowRestTimer(false)
+  }
+
+  const handleEditSet = (exerciseIndex: number, setIndex: number) => {
+    const set = completedSets[exerciseIndex]?.[setIndex]
+    if (set) {
+      setEditWeight(set.weight.toString())
+      setEditReps(set.reps.toString())
+      setEditingSet({ exerciseIndex, setIndex })
+    }
+  }
+
+  const handleSaveEdit = () => {
+    if (!editingSet || !editReps) return
+
+    const { exerciseIndex, setIndex } = editingSet
+    const newWeight = parseFloat(editWeight) || 0
+    const newReps = parseInt(editReps)
+
+    const newCompletedSets = [...completedSets]
+    newCompletedSets[exerciseIndex][setIndex] = {
+      ...newCompletedSets[exerciseIndex][setIndex],
+      reps: newReps,
+      weight: newWeight,
+    }
+    setCompletedSets(newCompletedSets)
+    setEditingSet(null)
+    setEditWeight("")
+    setEditReps("")
+  }
+
+  const handleDeleteSet = (exerciseIndex: number, setIndex: number) => {
+    const newCompletedSets = [...completedSets]
+    newCompletedSets[exerciseIndex] = newCompletedSets[exerciseIndex].filter((_, i) => i !== setIndex)
+    setCompletedSets(newCompletedSets)
+
+    // Adjust current set index if needed
+    if (exerciseIndex === currentExercise && currentSet > 0 && currentSet >= newCompletedSets[exerciseIndex].length) {
+      setCurrentSet(newCompletedSets[exerciseIndex].length)
+    }
+  }
+
+  const handleAddSetToExercise = (exerciseIndex: number) => {
+    const newExercises = [...exercises]
+    newExercises[exerciseIndex] = {
+      ...newExercises[exerciseIndex],
+      targetSets: newExercises[exerciseIndex].targetSets + 1,
+      lastReps: [...newExercises[exerciseIndex].lastReps, 10],
+    }
+    setExercises(newExercises)
   }
 
   const handleFinishWorkout = async () => {
@@ -441,12 +493,39 @@ function ActiveWorkoutContent() {
           {/* Completed Sets Display */}
           {completedSets[currentExercise]?.length > 0 && (
             <div className="mb-4 p-3 rounded-lg bg-secondary/30">
-              <p className="text-xs text-muted-foreground mb-2">Completed Sets</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-muted-foreground">Completed Sets</p>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {completedSets[currentExercise].map((set, idx) => (
-                  <span key={idx} className="px-2 py-1 text-sm rounded bg-primary/20 text-primary">
-                    {set.weight}kg × {set.reps}
-                  </span>
+                  <div
+                    key={idx}
+                    className="group relative flex items-center gap-1 px-2 py-1 text-sm rounded bg-primary/20 text-primary"
+                  >
+                    <span>Set {idx + 1}: {set.weight}kg × {set.reps}</span>
+                    <div className="flex items-center gap-0.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleEditSet(currentExercise, idx)
+                        }}
+                        className="p-0.5 hover:bg-primary/30 rounded"
+                        title="Edit set"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteSet(currentExercise, idx)
+                        }}
+                        className="p-0.5 hover:bg-destructive/30 text-destructive rounded"
+                        title="Delete set"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -454,9 +533,20 @@ function ActiveWorkoutContent() {
 
           {/* Current Set */}
           <div className="text-center mb-6">
-            <p className="text-sm text-muted-foreground mb-1">
-              Set {currentSet + 1} of {exercise.targetSets}
-            </p>
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <p className="text-sm text-muted-foreground">
+                Set {currentSet + 1} of {exercise.targetSets}
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => handleAddSetToExercise(currentExercise)}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add Set
+              </Button>
+            </div>
             <p className="text-lg">
               Target: <span className="font-bold">{exercise.lastReps[currentSet] || 10} reps</span>
             </p>
@@ -584,20 +674,33 @@ function ActiveWorkoutContent() {
                       <span className="text-xs text-muted-foreground">{ex.muscleGroup}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {completedSets[i]?.length || 0}/{ex.targetSets} sets
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm text-muted-foreground mr-1">
+                      {completedSets[i]?.length || 0}/{ex.targetSets}
                     </span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      className="h-6 w-6"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleAddSetToExercise(i)
+                      }}
+                      title="Add set"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleRemoveExercise(i)
                       }}
+                      title="Remove exercise"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
@@ -670,6 +773,50 @@ function ActiveWorkoutContent() {
               className="border-0 shadow-none p-0"
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Set Dialog */}
+      <Dialog open={editingSet !== null} onOpenChange={(open) => !open && setEditingSet(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit Set {editingSet ? editingSet.setIndex + 1 : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">
+                Weight (kg)
+              </label>
+              <Input
+                type="number"
+                value={editWeight}
+                onChange={(e) => setEditWeight(e.target.value)}
+                className="text-center text-xl h-12"
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">
+                Reps
+              </label>
+              <Input
+                type="number"
+                value={editReps}
+                onChange={(e) => setEditReps(e.target.value)}
+                className="text-center text-xl h-12"
+                placeholder="10"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => setEditingSet(null)}>
+              Cancel
+            </Button>
+            <Button className="flex-1" onClick={handleSaveEdit} disabled={!editReps}>
+              <Check className="mr-2 h-4 w-4" />
+              Save
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

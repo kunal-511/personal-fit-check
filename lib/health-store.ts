@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import type { BodyMetrics, SleepLog, RecoveryScore, HeartRateLog } from "@/types"
+import type { BodyMetrics, SleepLog, RecoveryScore, HeartRateLog, ProgressPhoto, PhotoCategory } from "@/types"
 
 // ============================================
 // Health Data Store - Manages health metrics state
@@ -31,6 +31,14 @@ interface RecoveryData {
   error: string | null
 }
 
+interface ProgressPhotosData {
+  photos: ProgressPhoto[]
+  groupedByDate: Record<string, ProgressPhoto[]>
+  isLoading: boolean
+  isUploading: boolean
+  error: string | null
+}
+
 interface HealthStore {
   // Body Metrics
   bodyMetrics: BodyMetricsData
@@ -47,6 +55,12 @@ interface HealthStore {
   fetchRecovery: (date?: string, days?: number) => Promise<void>
   saveRecovery: (data: Partial<RecoveryScore>) => Promise<boolean>
   saveHeartRate: (data: Partial<HeartRateLog>) => Promise<boolean>
+
+  // Progress Photos
+  progressPhotos: ProgressPhotosData
+  fetchProgressPhotos: (days?: number, category?: PhotoCategory) => Promise<void>
+  uploadProgressPhoto: (file: File, category: PhotoCategory, date?: string, notes?: string) => Promise<boolean>
+  deleteProgressPhoto: (id: number) => Promise<boolean>
 
   // Reset
   reset: () => void
@@ -267,6 +281,105 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
     }
   },
 
+  // ============================================
+  // Progress Photos
+  // ============================================
+  progressPhotos: {
+    photos: [],
+    groupedByDate: {},
+    isLoading: false,
+    isUploading: false,
+    error: null,
+  },
+
+  fetchProgressPhotos: async (days = 90, category) => {
+    set((state) => ({
+      progressPhotos: { ...state.progressPhotos, isLoading: true, error: null },
+    }))
+
+    try {
+      const params = new URLSearchParams()
+      params.append("days", days.toString())
+      if (category) params.append("category", category)
+
+      const response = await fetch(`/api/health/photos?${params}`)
+      if (!response.ok) throw new Error("Failed to fetch progress photos")
+
+      const data = await response.json()
+      set({
+        progressPhotos: {
+          photos: data.photos || [],
+          groupedByDate: data.groupedByDate || {},
+          isLoading: false,
+          isUploading: false,
+          error: null,
+        },
+      })
+    } catch (error) {
+      set((state) => ({
+        progressPhotos: {
+          ...state.progressPhotos,
+          isLoading: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
+      }))
+    }
+  },
+
+  uploadProgressPhoto: async (file, category, date, notes) => {
+    set((state) => ({
+      progressPhotos: { ...state.progressPhotos, isUploading: true, error: null },
+    }))
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("category", category)
+      if (date) formData.append("date", date)
+      if (notes) formData.append("notes", notes)
+
+      const response = await fetch("/api/health/photos", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to upload photo")
+      }
+
+      // Refresh photos after upload
+      await get().fetchProgressPhotos()
+      return true
+    } catch (error) {
+      set((state) => ({
+        progressPhotos: {
+          ...state.progressPhotos,
+          isUploading: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
+      }))
+      return false
+    }
+  },
+
+  deleteProgressPhoto: async (id) => {
+    try {
+      const response = await fetch(`/api/health/photos/${id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) throw new Error("Failed to delete photo")
+
+      // Refresh photos after delete
+      await get().fetchProgressPhotos()
+      return true
+    } catch (error) {
+      console.error("Error deleting progress photo:", error)
+      return false
+    }
+  },
+
   // Reset all health data
   reset: () => {
     set({
@@ -291,6 +404,13 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
         heartRate: null,
         sleep: null,
         isLoading: false,
+        error: null,
+      },
+      progressPhotos: {
+        photos: [],
+        groupedByDate: {},
+        isLoading: false,
+        isUploading: false,
         error: null,
       },
     })

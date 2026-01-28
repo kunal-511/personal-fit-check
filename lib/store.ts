@@ -80,6 +80,8 @@ interface ActiveWorkoutState {
   startWorkout: (title: string, exercises: Omit<ActiveExercise, "sets">[]) => void
   endWorkout: () => void
   completeSet: (exerciseIndex: number, setIndex: number, reps: number, weight: number) => void
+  updateSet: (exerciseIndex: number, setIndex: number, reps: number, weight: number) => void
+  deleteSet: (exerciseIndex: number, setIndex: number) => void
   startRest: (seconds: number) => void
   skipRest: () => void
   decrementRestTimer: () => void
@@ -134,6 +136,25 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set) => ({
     set((state) => {
       const exercises = [...state.exercises]
       exercises[exerciseIndex].sets[setIndex] = { reps, weight, completed: true }
+      return { exercises }
+    }),
+
+  updateSet: (exerciseIndex, setIndex, reps, weight) =>
+    set((state) => {
+      const exercises = [...state.exercises]
+      if (exercises[exerciseIndex]?.sets[setIndex]) {
+        exercises[exerciseIndex].sets[setIndex] = { reps, weight, completed: true }
+      }
+      return { exercises }
+    }),
+
+  deleteSet: (exerciseIndex, setIndex) =>
+    set((state) => {
+      const exercises = [...state.exercises]
+      if (exercises[exerciseIndex]) {
+        exercises[exerciseIndex].sets = exercises[exerciseIndex].sets.filter((_, i) => i !== setIndex)
+        exercises[exerciseIndex].targetSets = Math.max(1, exercises[exerciseIndex].targetSets - 1)
+      }
       return { exercises }
     }),
 
