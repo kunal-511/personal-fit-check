@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Utensils, Dumbbell, Heart, Droplets, TrendingUp, Flame, Loader2 } from "lucide-react"
+import { Utensils, Dumbbell, Heart, Droplets, TrendingUp, Flame} from "lucide-react"
 import Link from "next/link"
 import { GlassCard } from "@/components/ui/card"
 import { CircularProgress, Progress } from "@/components/ui/progress"

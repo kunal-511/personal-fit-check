@@ -154,7 +154,7 @@ function fallbackParse(text: string): ParsedFood[] {
   for (const part of parts) {
     // Try to extract quantity
     const quantityMatch = part.match(/(\d+(?:\.\d+)?)\s*(?:g|grams?|ml|cups?|tbsp|pieces?|slices?|servings?|large|medium|small)?\s*/i)
-    let quantity = quantityMatch ? parseFloat(quantityMatch[1]) : 1
+    const quantity = quantityMatch ? parseFloat(quantityMatch[1]) : 1
     let unit = "serving"
 
     if (part.match(/\d+\s*g(?:rams?)?/i)) unit = "g"

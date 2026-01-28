@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { ArrowLeft, Check, Plus, Trophy, History, Loader2, X, Trash2, Pencil } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"

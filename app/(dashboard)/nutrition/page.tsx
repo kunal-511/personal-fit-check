@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { nutritionApi } from "@/lib/api"
 import Link from "next/link"
-import type { DailyNutrition, Meal } from "@/types"
+import type { DailyNutrition } from "@/types"
 
 const mealIcons: Record<string, typeof Coffee> = {
   breakfast: Coffee,

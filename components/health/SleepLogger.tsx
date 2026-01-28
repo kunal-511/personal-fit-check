@@ -44,7 +44,7 @@ export function SleepLogger({
     const [bedHour, bedMin] = bedtime.split(":").map(Number)
     const [wakeHour, wakeMin] = wakeTime.split(":").map(Number)
 
-    let bedMinutes = bedHour * 60 + bedMin
+    const bedMinutes = bedHour * 60 + bedMin
     let wakeMinutes = wakeHour * 60 + wakeMin
 
     // Handle overnight sleep

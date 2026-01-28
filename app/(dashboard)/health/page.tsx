@@ -5,7 +5,6 @@ import { Heart, Scale, Moon, Activity, TrendingDown, TrendingUp, Plus } from "lu
 import Link from "next/link"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BodyMetricsChart, SleepChart, RecoveryScoreDisplay, ProgressPhotosGallery } from "@/components/health"
 import { useHealthStore, getRecoveryRecommendation } from "@/lib/health-store"

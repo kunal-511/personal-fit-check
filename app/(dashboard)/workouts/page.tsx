@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Dumbbell, Play, Clock, Flame, ChevronRight, Trophy } from "lucide-react"
+import { Plus, Dumbbell, Play, Clock, ChevronRight} from "lucide-react"
 import Link from "next/link"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"

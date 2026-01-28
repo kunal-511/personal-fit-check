@@ -13,7 +13,6 @@ import { useHealthStore } from "@/lib/health-store"
 import { cn } from "@/lib/utils"
 
 export default function BodyMetricsPage() {
-  const router = useRouter()
   const { bodyMetrics, fetchBodyMetrics } = useHealthStore()
   const [selectedTab, setSelectedTab] = useState("log")
 

@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
-import { cn, formatDate } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import { workoutsApi } from "@/lib/api"
 import type { Workout, Exercise } from "@/types"
 
