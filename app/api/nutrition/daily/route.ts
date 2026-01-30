@@ -40,10 +40,10 @@ export async function GET(request: NextRequest) {
           ) FILTER (WHERE f.id IS NOT NULL),
           '[]'
         ) as food_items,
-        COALESCE(SUM(f.calories), 0)::int as meal_calories,
-        COALESCE(SUM(f.protein_g), 0)::real as meal_protein,
-        COALESCE(SUM(f.carbs_g), 0)::real as meal_carbs,
-        COALESCE(SUM(f.fats_g), 0)::real as meal_fats
+        COALESCE(SUM(f.calories * f.quantity), 0)::real as meal_calories,
+        COALESCE(SUM(f.protein_g * f.quantity), 0)::real as meal_protein,
+        COALESCE(SUM(f.carbs_g * f.quantity), 0)::real as meal_carbs,
+        COALESCE(SUM(f.fats_g * f.quantity), 0)::real as meal_fats
       FROM meals m
       LEFT JOIN food_items f ON m.id = f.meal_id
       WHERE m.user_id = ${USER_ID} AND m.date = ${date}
@@ -83,10 +83,10 @@ export async function GET(request: NextRequest) {
     // Calculate totals
     const totals = await sql`
       SELECT
-        COALESCE(SUM(f.calories), 0)::int as calories,
-        COALESCE(SUM(f.protein_g), 0)::int as protein,
-        COALESCE(SUM(f.carbs_g), 0)::int as carbs,
-        COALESCE(SUM(f.fats_g), 0)::int as fats
+        COALESCE(SUM(f.calories * f.quantity), 0)::real as calories,
+        COALESCE(SUM(f.protein_g * f.quantity), 0)::real as protein,
+        COALESCE(SUM(f.carbs_g * f.quantity), 0)::real as carbs,
+        COALESCE(SUM(f.fats_g * f.quantity), 0)::real as fats
       FROM meals m
       JOIN food_items f ON m.id = f.meal_id
       WHERE m.user_id = ${USER_ID} AND m.date = ${date}
@@ -100,10 +100,10 @@ export async function GET(request: NextRequest) {
     `
 
     const goal = goals[0] || {
-      daily_calories: 2500,
-      protein_g: 180,
-      carbs_g: 250,
-      fats_g: 70,
+      daily_calories: 1900,
+      protein_g: 110,
+      carbs_g: 230,
+      fats_g: 60,
       water_ml: 3000,
     }
 
@@ -120,11 +120,11 @@ export async function GET(request: NextRequest) {
         water: waterTotal,
       },
       goals: {
-        calories: goal.daily_calories,
-        protein: goal.protein_g,
-        carbs: goal.carbs_g,
-        fats: goal.fats_g,
-        water: goal.water_ml,
+        daily_calories: goal.daily_calories,
+        protein_g: goal.protein_g,
+        carbs_g: goal.carbs_g,
+        fats_g: goal.fats_g,
+        water_ml: goal.water_ml,
       },
       percentages: {
         calories: Math.round((total.calories / goal.daily_calories) * 100),

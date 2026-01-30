@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
+import { sql } from "@/lib/db"
 
 // Cloudflare AI Configuration (Free tier: 10,000 neurons/day)
 // Get your credentials at: https://dash.cloudflare.com/ -> AI -> Workers AI
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || ""
 const CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || ""
 const CF_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct" // Free tier model
+const USER_ID = "default_user"
 
 interface ParsedFood {
   name: string
@@ -94,16 +96,25 @@ function parseAIResponse(response: string): ParsedFood[] | null {
       return null
     }
 
-    return parsed.foods.map((food: Record<string, unknown>) => ({
-      name: String(food.name || "Unknown"),
-      quantity: Number(food.quantity) || 1,
-      unit: String(food.unit || "serving"),
-      calories: Math.round(Number(food.calories) || 0),
-      protein: Math.round((Number(food.protein) || 0) * 10) / 10,
-      carbs: Math.round((Number(food.carbs) || 0) * 10) / 10,
-      fats: Math.round((Number(food.fats) || 0) * 10) / 10,
-      confidence: 0.85,
-    }))
+    return parsed.foods.map((food: Record<string, unknown>) => {
+      const quantity = Number(food.quantity) || 1
+      const calories = Number(food.calories) || 0
+      const protein = Number(food.protein) || 0
+      const carbs = Number(food.carbs) || 0
+      const fats = Number(food.fats) || 0
+      const perUnit = quantity > 0 ? quantity : 1
+
+      return {
+        name: String(food.name || "Unknown"),
+        quantity,
+        unit: String(food.unit || "serving"),
+        calories: Math.round((calories / perUnit) * 100) / 100,
+        protein: Math.round((protein / perUnit) * 100) / 100,
+        carbs: Math.round((carbs / perUnit) * 100) / 100,
+        fats: Math.round((fats / perUnit) * 100) / 100,
+        confidence: 0.85,
+      }
+    })
   } catch (error) {
     console.error("Failed to parse AI response:", error)
     return null
@@ -111,41 +122,39 @@ function parseAIResponse(response: string): ParsedFood[] | null {
 }
 
 // Fallback: Simple keyword-based parsing when AI is not available
-function fallbackParse(text: string): ParsedFood[] {
+async function fallbackParse(text: string): Promise<ParsedFood[]> {
   const foods: ParsedFood[] = []
   const lowerText = text.toLowerCase()
 
-  // Common food database with approximate values
-  const foodDatabase: Record<string, { calories: number; protein: number; carbs: number; fats: number; defaultAmount: number; unit: string }> = {
-    "chicken breast": { calories: 165, protein: 31, carbs: 0, fats: 3.6, defaultAmount: 100, unit: "g" },
-    "chicken": { calories: 165, protein: 31, carbs: 0, fats: 3.6, defaultAmount: 100, unit: "g" },
-    "rice": { calories: 130, protein: 2.7, carbs: 28, fats: 0.3, defaultAmount: 100, unit: "g" },
-    "eggs": { calories: 156, protein: 12, carbs: 1.2, fats: 10, defaultAmount: 2, unit: "large" },
-    "egg": { calories: 78, protein: 6, carbs: 0.6, fats: 5, defaultAmount: 1, unit: "large" },
-    "banana": { calories: 105, protein: 1.3, carbs: 27, fats: 0.4, defaultAmount: 1, unit: "medium" },
-    "apple": { calories: 95, protein: 0.5, carbs: 25, fats: 0.3, defaultAmount: 1, unit: "medium" },
-    "bread": { calories: 79, protein: 2.7, carbs: 15, fats: 1, defaultAmount: 1, unit: "slice" },
-    "toast": { calories: 79, protein: 2.7, carbs: 15, fats: 1, defaultAmount: 1, unit: "slice" },
-    "salmon": { calories: 208, protein: 20, carbs: 0, fats: 13, defaultAmount: 100, unit: "g" },
-    "beef": { calories: 250, protein: 26, carbs: 0, fats: 15, defaultAmount: 100, unit: "g" },
-    "steak": { calories: 271, protein: 26, carbs: 0, fats: 18, defaultAmount: 100, unit: "g" },
-    "pasta": { calories: 131, protein: 5, carbs: 25, fats: 1.1, defaultAmount: 100, unit: "g" },
-    "oatmeal": { calories: 150, protein: 5, carbs: 27, fats: 3, defaultAmount: 1, unit: "cup" },
-    "oats": { calories: 150, protein: 5, carbs: 27, fats: 3, defaultAmount: 40, unit: "g" },
-    "milk": { calories: 103, protein: 8, carbs: 12, fats: 2.4, defaultAmount: 1, unit: "cup" },
-    "yogurt": { calories: 100, protein: 17, carbs: 6, fats: 0.7, defaultAmount: 170, unit: "g" },
-    "greek yogurt": { calories: 100, protein: 17, carbs: 6, fats: 0.7, defaultAmount: 170, unit: "g" },
-    "protein shake": { calories: 150, protein: 25, carbs: 5, fats: 2, defaultAmount: 1, unit: "serving" },
-    "whey protein": { calories: 120, protein: 24, carbs: 3, fats: 1, defaultAmount: 1, unit: "scoop" },
-    "avocado": { calories: 160, protein: 2, carbs: 9, fats: 15, defaultAmount: 0.5, unit: "whole" },
-    "sweet potato": { calories: 103, protein: 2.3, carbs: 24, fats: 0.1, defaultAmount: 130, unit: "g" },
-    "potato": { calories: 161, protein: 4.3, carbs: 37, fats: 0.2, defaultAmount: 1, unit: "medium" },
-    "broccoli": { calories: 55, protein: 3.7, carbs: 11, fats: 0.6, defaultAmount: 150, unit: "g" },
-    "salad": { calories: 20, protein: 1.5, carbs: 3.5, fats: 0.2, defaultAmount: 1, unit: "serving" },
-    "almonds": { calories: 164, protein: 6, carbs: 6, fats: 14, defaultAmount: 28, unit: "g" },
-    "peanut butter": { calories: 188, protein: 8, carbs: 6, fats: 16, defaultAmount: 2, unit: "tbsp" },
-    "cheese": { calories: 113, protein: 7, carbs: 0.4, fats: 9, defaultAmount: 28, unit: "g" },
-    "coffee": { calories: 2, protein: 0.3, carbs: 0, fats: 0, defaultAmount: 1, unit: "cup" },
+  const frequentFoods = await sql`
+    SELECT food_name, unit, calories, protein_g, carbs_g, fats_g
+    FROM frequent_foods
+    WHERE user_id = ${USER_ID}
+    ORDER BY use_count DESC, last_used_at DESC
+    LIMIT 50
+  `
+
+  if (frequentFoods.length === 0) return foods
+
+  const foodDatabase: Record<string, { calories: number; protein: number; carbs: number; fats: number; defaultAmount: number; unit: string }> = {}
+  const rows = frequentFoods as unknown as Array<{
+    food_name: string
+    unit: string
+    calories: number
+    protein_g: number
+    carbs_g: number
+    fats_g: number
+  }>
+
+  for (const row of rows) {
+    foodDatabase[row.food_name.toLowerCase()] = {
+      calories: Number(row.calories) || 0,
+      protein: Number(row.protein_g) || 0,
+      carbs: Number(row.carbs_g) || 0,
+      fats: Number(row.fats_g) || 0,
+      defaultAmount: 1,
+      unit: row.unit || "serving",
+    }
   }
 
   // Split by common separators
@@ -166,24 +175,22 @@ function fallbackParse(text: string): ParsedFood[] {
     // Find matching food
     for (const [foodName, data] of Object.entries(foodDatabase)) {
       if (lowerText.includes(foodName) || part.toLowerCase().includes(foodName)) {
-        // Calculate multiplier based on quantity and unit
-        let multiplier = 1
-        if (unit === "g" && data.unit === "g") {
-          multiplier = quantity / data.defaultAmount
-        } else if (unit === "g" && data.unit !== "g") {
-          multiplier = quantity / 100 // Assume 100g per serving
-        } else {
-          multiplier = quantity / data.defaultAmount
+        let normalizedQuantity = quantity
+        let normalizedUnit = unit === "serving" ? data.unit : unit
+
+        if (unit === "g" && data.unit !== "g") {
+          normalizedQuantity = quantity / 100
+          normalizedUnit = data.unit
         }
 
         foods.push({
           name: foodName.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
-          quantity,
-          unit: unit === "serving" ? data.unit : unit,
-          calories: Math.round(data.calories * multiplier),
-          protein: Math.round(data.protein * multiplier * 10) / 10,
-          carbs: Math.round(data.carbs * multiplier * 10) / 10,
-          fats: Math.round(data.fats * multiplier * 10) / 10,
+          quantity: normalizedQuantity,
+          unit: normalizedUnit,
+          calories: Math.round(data.calories * 100) / 100,
+          protein: Math.round(data.protein * 100) / 100,
+          carbs: Math.round(data.carbs * 100) / 100,
+          fats: Math.round(data.fats * 100) / 100,
           confidence: 0.6,
         })
         break
@@ -219,7 +226,7 @@ export async function POST(request: NextRequest) {
 
     // Fallback to keyword matching if AI didn't work
     if (foods.length === 0) {
-      foods = fallbackParse(text)
+      foods = await fallbackParse(text)
       source = "fallback"
     }
 
@@ -235,10 +242,10 @@ export async function POST(request: NextRequest) {
     // Calculate totals
     const totals = foods.reduce(
       (acc, food) => ({
-        calories: acc.calories + food.calories,
-        protein: acc.protein + food.protein,
-        carbs: acc.carbs + food.carbs,
-        fats: acc.fats + food.fats,
+        calories: acc.calories + food.calories * food.quantity,
+        protein: acc.protein + food.protein * food.quantity,
+        carbs: acc.carbs + food.carbs * food.quantity,
+        fats: acc.fats + food.fats * food.quantity,
       }),
       { calories: 0, protein: 0, carbs: 0, fats: 0 }
     )

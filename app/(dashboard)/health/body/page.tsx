@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { ArrowLeft, Scale, TrendingDown, TrendingUp, Calendar } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { Plus, Apple, Coffee, Moon, Sun, Trash2, Droplets, Loader2 } from "lucide-react"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { CircularProgress, Progress } from "@/components/ui/progress"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -34,6 +36,15 @@ export default function NutritionPage() {
   const [deletingMeal, setDeletingMeal] = useState<number | null>(null)
   const [selectedTab, setSelectedTab] = useState("today")
   const [expandedMeal, setExpandedMeal] = useState<number | null>(null)
+  const [savingGoals, setSavingGoals] = useState(false)
+  const [editingGoals, setEditingGoals] = useState(false)
+  const [goalsForm, setGoalsForm] = useState({
+    daily_calories: "1900",
+    protein_g: "110",
+    carbs_g: "230",
+    fats_g: "60",
+    water_ml: "4000",
+  })
 
   const fetchData = async () => {
     try {
@@ -80,18 +91,55 @@ export default function NutritionPage() {
     }
   }
 
+  useEffect(() => {
+    if (!data?.goals) return
+    setGoalsForm({
+      daily_calories: String(data.goals.daily_calories),
+      protein_g: String(data.goals.protein_g),
+      carbs_g: String(data.goals.carbs_g),
+      fats_g: String(data.goals.fats_g),
+      water_ml: String(data.goals.water_ml),
+    })
+  }, [data?.goals])
+
   if (loading) {
     return <NutritionSkeleton />
   }
 
   const totals = data?.totals || { calories: 0, protein: 0, carbs: 0, fats: 0 }
-  const goals = data?.goals || { daily_calories: 2500, protein_g: 180, carbs_g: 250, fats_g: 70, water_ml: 4000 }
+  const goals = data?.goals || { daily_calories: 1900, protein_g: 110, carbs_g: 230, fats_g: 60, water_ml: 4000 }
   const meals = data?.meals || []
   const waterTarget = goals.water_ml || 4000
 
   const caloriePercentage = Math.round((totals.calories / goals.daily_calories) * 100)
   const remaining = goals.daily_calories - totals.calories
   const waterPercentage = Math.round((waterData.total / waterTarget) * 100)
+
+  const handleSaveGoals = async () => {
+    setSavingGoals(true)
+    try {
+      const dailyCalories = Number.parseFloat(goalsForm.daily_calories)
+      const protein = Number.parseFloat(goalsForm.protein_g)
+      const carbs = Number.parseFloat(goalsForm.carbs_g)
+      const fats = Number.parseFloat(goalsForm.fats_g)
+      const water = Number.parseFloat(goalsForm.water_ml)
+
+      await nutritionApi.updateGoals({
+        daily_calories: Number.isFinite(dailyCalories) && dailyCalories > 0 ? dailyCalories : goals.daily_calories,
+        protein_g: Number.isFinite(protein) && protein >= 0 ? protein : goals.protein_g,
+        carbs_g: Number.isFinite(carbs) && carbs >= 0 ? carbs : goals.carbs_g,
+        fats_g: Number.isFinite(fats) && fats >= 0 ? fats : goals.fats_g,
+        water_ml: Number.isFinite(water) && water > 0 ? water : goals.water_ml,
+      })
+
+      await fetchData()
+      setEditingGoals(false)
+    } catch (error) {
+      console.error("Failed to update goals:", error)
+    } finally {
+      setSavingGoals(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -118,6 +166,95 @@ export default function NutritionPage() {
 
         {/* Today View */}
         <TabsContent value="today" className="space-y-6 mt-6">
+          {/* Goals */}
+          <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-semibold">Goals</h2>
+                <p className="text-sm text-muted-foreground">Update your daily targets</p>
+              </div>
+              {editingGoals ? (
+                <div className="flex items-center gap-2">
+                  <Button onClick={handleSaveGoals} disabled={savingGoals}>
+                    {savingGoals ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Goals"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setEditingGoals(false)}
+                    disabled={savingGoals}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="secondary" onClick={() => setEditingGoals(true)}>
+                  Edit Goals
+                </Button>
+              )}
+            </div>
+            {!editingGoals ? (
+              <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
+                <p><span className="font-medium text-foreground">{goals.daily_calories}</span> cal</p>
+                <p><span className="font-medium text-foreground">{goals.protein_g}</span> g protein</p>
+                <p><span className="font-medium text-foreground">{goals.carbs_g}</span> g carbs</p>
+                <p><span className="font-medium text-foreground">{goals.fats_g}</span> g fats</p>
+                <p><span className="font-medium text-foreground">{goals.water_ml}</span> ml water</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="goalCalories">Calories</Label>
+                  <Input
+                    id="goalCalories"
+                    type="text"
+                    inputMode="decimal"
+                    value={goalsForm.daily_calories}
+                    onChange={(e) => setGoalsForm({ ...goalsForm, daily_calories: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="goalProtein">Protein (g)</Label>
+                  <Input
+                    id="goalProtein"
+                    type="text"
+                    inputMode="decimal"
+                    value={goalsForm.protein_g}
+                    onChange={(e) => setGoalsForm({ ...goalsForm, protein_g: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="goalCarbs">Carbs (g)</Label>
+                  <Input
+                    id="goalCarbs"
+                    type="text"
+                    inputMode="decimal"
+                    value={goalsForm.carbs_g}
+                    onChange={(e) => setGoalsForm({ ...goalsForm, carbs_g: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="goalFats">Fats (g)</Label>
+                  <Input
+                    id="goalFats"
+                    type="text"
+                    inputMode="decimal"
+                    value={goalsForm.fats_g}
+                    onChange={(e) => setGoalsForm({ ...goalsForm, fats_g: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="goalWater">Water (ml)</Label>
+                  <Input
+                    id="goalWater"
+                    type="text"
+                    inputMode="decimal"
+                    value={goalsForm.water_ml}
+                    onChange={(e) => setGoalsForm({ ...goalsForm, water_ml: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+          </GlassCard>
           {/* Calorie Overview */}
           <GlassCard className="p-6">
             <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
@@ -168,10 +305,19 @@ export default function NutritionPage() {
 
                 <div className="rounded-lg bg-secondary/50 p-3">
                   <p className="text-sm">
-                    <span className="font-medium">{remaining > 0 ? Math.round(remaining) : 0}</span>
-                    <span className="text-muted-foreground">
-                      {remaining > 0 ? " calories remaining" : " - Goal reached!"}
-                    </span>
+                    {remaining > 0 ? (
+                      <>
+                        <span className="font-medium">{Math.round(remaining)}</span>
+                        <span className="text-muted-foreground"> calories remaining</span>
+                      </>
+                    ) : remaining < 0 ? (
+                      <>
+                        <span className="font-medium">{Math.abs(Math.round(remaining))}</span>
+                        <span className="text-muted-foreground"> calories over goal</span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">Goal reached!</span>
+                    )}
                   </p>
                   <Progress value={Math.min(100, caloriePercentage)} className="mt-2 h-2" />
                 </div>

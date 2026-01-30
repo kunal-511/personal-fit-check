@@ -17,10 +17,10 @@ CREATE TABLE IF NOT EXISTS user_profile (
 CREATE TABLE IF NOT EXISTS nutrition_goals (
   id SERIAL PRIMARY KEY,
   user_id TEXT NOT NULL DEFAULT 'default_user',
-  daily_calories INTEGER DEFAULT 2000,
-  protein_g INTEGER DEFAULT 150,
-  carbs_g INTEGER DEFAULT 200,
-  fats_g INTEGER DEFAULT 65,
+  daily_calories INTEGER DEFAULT 1900,
+  protein_g INTEGER DEFAULT 110,
+  carbs_g INTEGER DEFAULT 230,
+  fats_g INTEGER DEFAULT 60,
   water_ml INTEGER DEFAULT 4000,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -54,6 +54,22 @@ CREATE TABLE IF NOT EXISTS food_items (
   vitamin_d_mcg REAL,
   calcium_mg REAL,
   iron_mg REAL
+);
+
+-- Frequent Foods (personal quick-add)
+CREATE TABLE IF NOT EXISTS frequent_foods (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL DEFAULT 'default_user',
+  meal_type TEXT,
+  food_name TEXT NOT NULL,
+  unit TEXT DEFAULT 'serving',
+  calories REAL DEFAULT 0,
+  protein_g REAL DEFAULT 0,
+  carbs_g REAL DEFAULT 0,
+  fats_g REAL DEFAULT 0,
+  use_count INTEGER DEFAULT 1,
+  last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, meal_type, food_name, unit)
 );
 
 -- Water Logs
@@ -190,6 +206,8 @@ CREATE INDEX IF NOT EXISTS idx_body_metrics_user_date ON body_metrics(user_id, d
 CREATE INDEX IF NOT EXISTS idx_water_logs_user_date ON water_logs(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_sleep_logs_user_date ON sleep_logs(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_recovery_scores_user_date ON recovery_scores(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_frequent_foods_user_count ON frequent_foods(user_id, use_count DESC);
+CREATE INDEX IF NOT EXISTS idx_frequent_foods_user_meal_count ON frequent_foods(user_id, meal_type, use_count DESC);
 
 -- Insert default user profile and nutrition goals
 INSERT INTO user_profile (user_id, height_cm, weight_kg, activity_level)
@@ -197,5 +215,5 @@ VALUES ('default_user', 175, 75, 'moderately_active')
 ON CONFLICT (user_id) DO NOTHING;
 
 INSERT INTO nutrition_goals (user_id, daily_calories, protein_g, carbs_g, fats_g, water_ml)
-VALUES ('default_user', 2500, 180, 250, 70, 4000)
+VALUES ('default_user', 1900, 110, 230, 60, 4000)
 ON CONFLICT DO NOTHING;

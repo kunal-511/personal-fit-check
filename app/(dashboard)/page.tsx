@@ -70,14 +70,14 @@ export default function DashboardPage() {
   // Default values if no data
   const nutrition = data?.nutrition || {
     totals: { calories: 0, protein: 0, carbs: 0, fats: 0 },
-    goals: { daily_calories: 2500, protein_g: 180, carbs_g: 250, fats_g: 70, water_ml: 4000 },
+    goals: { daily_calories: 1900, protein_g: 110, carbs_g: 230, fats_g: 60, water_ml: 4000 },
     meals: [],
   }
   const water = data?.water || { total: 0, target: 4000 }
   const workouts = data?.workouts || []
   const health = data?.health || { weight: null, weightChange: null, recovery: null, sleep: null }
 
-  const caloriePercentage = Math.round((nutrition.totals.calories / (nutrition.goals.daily_calories || 2500)) * 100)
+  const caloriePercentage = Math.round((nutrition.totals.calories / (nutrition.goals.daily_calories || 1900)) * 100)
   const waterPercentage = Math.round((water.total / water.target) * 100)
   const workoutsThisWeek = workouts.filter(w => {
     const workoutDate = new Date(w.date)
@@ -105,7 +105,7 @@ export default function DashboardPage() {
                 <p className="text-2xl font-bold">
                   {formatNumber(nutrition.totals.calories)}
                   <span className="text-sm font-normal text-muted-foreground">
-                    /{formatNumber(nutrition.goals.daily_calories || 2500)}
+                    /{formatNumber(nutrition.goals.daily_calories || 1900)}
                   </span>
                 </p>
               </div>
@@ -221,7 +221,7 @@ export default function DashboardPage() {
             <div className="flex flex-col items-center">
               <CircularProgress
                 value={nutrition.totals.protein}
-                max={nutrition.goals.protein_g || 180}
+                max={nutrition.goals.protein_g || 110}
                 size={100}
                 strokeWidth={8}
                 indicatorClassName="stroke-protein"
@@ -238,7 +238,7 @@ export default function DashboardPage() {
             <div className="flex flex-col items-center">
               <CircularProgress
                 value={nutrition.totals.carbs}
-                max={nutrition.goals.carbs_g || 250}
+                max={nutrition.goals.carbs_g || 230}
                 size={100}
                 strokeWidth={8}
                 indicatorClassName="stroke-carbs"
@@ -255,7 +255,7 @@ export default function DashboardPage() {
             <div className="flex flex-col items-center">
               <CircularProgress
                 value={nutrition.totals.fats}
-                max={nutrition.goals.fats_g || 70}
+                max={nutrition.goals.fats_g || 60}
                 size={100}
                 strokeWidth={8}
                 indicatorClassName="stroke-fats"
@@ -274,19 +274,19 @@ export default function DashboardPage() {
             <MacroBar
               label="Protein"
               current={nutrition.totals.protein}
-              target={nutrition.goals.protein_g || 180}
+              target={nutrition.goals.protein_g || 110}
               color="protein"
             />
             <MacroBar
               label="Carbs"
               current={nutrition.totals.carbs}
-              target={nutrition.goals.carbs_g || 250}
+              target={nutrition.goals.carbs_g || 230}
               color="carbs"
             />
             <MacroBar
               label="Fats"
               current={nutrition.totals.fats}
-              target={nutrition.goals.fats_g || 70}
+              target={nutrition.goals.fats_g || 60}
               color="fats"
             />
           </div>

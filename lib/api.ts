@@ -83,6 +83,43 @@ export const nutritionApi = {
       method: "POST",
       body: JSON.stringify({ text }),
     }),
+
+  getFrequentFoods: (limit = 6, meal_type?: string) =>
+    fetcher<{
+      foods: Array<{
+        name: string
+        unit: string
+        calories: number
+        protein: number
+        carbs: number
+        fats: number
+        use_count: number
+        last_used_at: string
+      }>
+    }>(`/nutrition/foods/frequent?limit=${limit}${meal_type ? `&meal_type=${meal_type}` : ""}`),
+
+  getGoals: () =>
+    fetcher<{
+      goals: {
+        daily_calories: number
+        protein_g: number
+        carbs_g: number
+        fats_g: number
+        water_ml: number
+      }
+    }>("/nutrition/goals"),
+
+  updateGoals: (goals: {
+    daily_calories: number
+    protein_g: number
+    carbs_g: number
+    fats_g: number
+    water_ml: number
+  }) =>
+    fetcher<{ success: boolean }>("/nutrition/goals", {
+      method: "POST",
+      body: JSON.stringify(goals),
+    }),
 }
 
 // ============================================

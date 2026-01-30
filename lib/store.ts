@@ -241,10 +241,10 @@ interface NutritionGoalsState {
 }
 
 export const useNutritionGoalsStore = create<NutritionGoalsState>((set) => ({
-  calories: 2500,
-  protein: 180,
-  carbs: 250,
-  fats: 70,
+  calories: 1900,
+  protein: 110,
+  carbs: 230,
+  fats: 60,
   water: 4000,
   setGoals: (goals) => set(goals),
 }))

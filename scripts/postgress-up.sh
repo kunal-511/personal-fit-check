@@ -1,6 +1,6 @@
 #! /bin/bash
 
-docker run --name local-postgres \
+docker run --name fitcheck \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=password \
   -e POSTGRES_DB=fitness_tracker \

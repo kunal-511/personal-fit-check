@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Plus, Trash2, Loader2, Check, Sparkles, Send } from "lucide-react"
 import Link from "next/link"
@@ -22,20 +22,17 @@ interface FoodItem {
   protein: number
   carbs: number
   fats: number
+  source: "manual" | "parsed" | "quick"
 }
 
-const commonFoods = [
-  { name: "Chicken Breast", calories: 165, protein: 31, carbs: 0, fats: 3.6, unit: "100g" },
-  { name: "Brown Rice", calories: 112, protein: 2.6, carbs: 24, fats: 0.9, unit: "100g" },
-  { name: "Banana", calories: 89, protein: 1.1, carbs: 23, fats: 0.3, unit: "1 medium" },
-  { name: "Greek Yogurt", calories: 100, protein: 17, carbs: 6, fats: 0.7, unit: "170g" },
-  { name: "Eggs", calories: 155, protein: 13, carbs: 1.1, fats: 11, unit: "2 large" },
-  { name: "Oatmeal", calories: 150, protein: 5, carbs: 27, fats: 3, unit: "40g" },
-  { name: "Salmon", calories: 208, protein: 20, carbs: 0, fats: 13, unit: "100g" },
-  { name: "Broccoli", calories: 55, protein: 3.7, carbs: 11, fats: 0.6, unit: "150g" },
-  { name: "Sweet Potato", calories: 103, protein: 2.3, carbs: 24, fats: 0.1, unit: "130g" },
-  { name: "Almonds", calories: 164, protein: 6, carbs: 6, fats: 14, unit: "28g" },
-]
+interface FrequentFood {
+  name: string
+  unit: string
+  calories: number
+  protein: number
+  carbs: number
+  fats: number
+}
 
 function LogMealPageSkeleton() {
   return (
@@ -72,11 +69,34 @@ function LogMealPageContent() {
   const [foods, setFoods] = useState<FoodItem[]>([])
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [frequentFoods, setFrequentFoods] = useState<FrequentFood[]>([])
+  const [frequentLoading, setFrequentLoading] = useState(true)
 
   // AI Food Parser
   const [aiInput, setAiInput] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState("")
+
+  useEffect(() => {
+    let mounted = true
+    const loadFrequentFoods = async () => {
+      setFrequentLoading(true)
+      try {
+        const result = await nutritionApi.getFrequentFoods(6, mealType)
+        if (mounted) {
+          setFrequentFoods(result.foods || [])
+        }
+      } catch (error) {
+        console.error("Failed to load frequent foods:", error)
+      } finally {
+        if (mounted) setFrequentLoading(false)
+      }
+    }
+    loadFrequentFoods()
+    return () => {
+      mounted = false
+    }
+  }, [mealType])
 
   const handleAiParse = async () => {
     if (!aiInput.trim()) return
@@ -98,6 +118,7 @@ function LogMealPageContent() {
             protein: food.protein,
             carbs: food.carbs,
             fats: food.fats,
+            source: "parsed",
           })
         })
         setAiInput("")
@@ -114,12 +135,12 @@ function LogMealPageContent() {
   // Manual entry form
   const [manualFood, setManualFood] = useState({
     name: "",
-    quantity: 1,
+    quantity: "1",
     unit: "serving",
-    calories: 0,
-    protein: 0,
-    carbs: 0,
-    fats: 0,
+    calories: "",
+    protein: "",
+    carbs: "",
+    fats: "",
   })
 
   const addFood = (food: Omit<FoodItem, "id">) => {
@@ -130,7 +151,7 @@ function LogMealPageContent() {
     setFoods(foods.filter(f => f.id !== id))
   }
 
-  const addCommonFood = (food: typeof commonFoods[0]) => {
+  const addFrequentFood = (food: FrequentFood) => {
     addFood({
       name: food.name,
       quantity: 1,
@@ -139,30 +160,38 @@ function LogMealPageContent() {
       protein: food.protein,
       carbs: food.carbs,
       fats: food.fats,
+      source: "quick",
     })
   }
 
   const addManualFood = () => {
     if (!manualFood.name) return
 
+    const quantity = Number.parseFloat(manualFood.quantity)
+    const calories = Number.parseFloat(manualFood.calories)
+    const protein = Number.parseFloat(manualFood.protein)
+    const carbs = Number.parseFloat(manualFood.carbs)
+    const fats = Number.parseFloat(manualFood.fats)
+
     addFood({
-      name: manualFood.name,
-      quantity: manualFood.quantity,
-      unit: manualFood.unit,
-      calories: manualFood.calories,
-      protein: manualFood.protein,
-      carbs: manualFood.carbs,
-      fats: manualFood.fats,
+      name: manualFood.name.trim(),
+      quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+      unit: manualFood.unit.trim() || "serving",
+      calories: Number.isFinite(calories) ? calories : 0,
+      protein: Number.isFinite(protein) ? protein : 0,
+      carbs: Number.isFinite(carbs) ? carbs : 0,
+      fats: Number.isFinite(fats) ? fats : 0,
+      source: "manual",
     })
 
     setManualFood({
       name: "",
-      quantity: 1,
+      quantity: "1",
       unit: "serving",
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fats: 0,
+      calories: "",
+      protein: "",
+      carbs: "",
+      fats: "",
     })
   }
 
@@ -175,6 +204,62 @@ function LogMealPageContent() {
     }),
     { calories: 0, protein: 0, carbs: 0, fats: 0 }
   )
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editFood, setEditFood] = useState({
+    name: "",
+    quantity: "1",
+    unit: "serving",
+    calories: "",
+    protein: "",
+    carbs: "",
+    fats: "",
+  })
+
+  const startEdit = (food: FoodItem) => {
+    setEditingId(food.id)
+    setEditFood({
+      name: food.name,
+      quantity: String(food.quantity),
+      unit: food.unit,
+      calories: String(food.calories),
+      protein: String(food.protein),
+      carbs: String(food.carbs),
+      fats: String(food.fats),
+    })
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+  }
+
+  const saveEdit = () => {
+    if (!editingId) return
+    const quantity = Number.parseFloat(editFood.quantity)
+    const calories = Number.parseFloat(editFood.calories)
+    const protein = Number.parseFloat(editFood.protein)
+    const carbs = Number.parseFloat(editFood.carbs)
+    const fats = Number.parseFloat(editFood.fats)
+
+    setFoods(prev =>
+      prev.map(f =>
+        f.id === editingId
+          ? {
+              ...f,
+              name: editFood.name.trim() || f.name,
+              quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+              unit: editFood.unit.trim() || "serving",
+              calories: Number.isFinite(calories) ? calories : 0,
+              protein: Number.isFinite(protein) ? protein : 0,
+              carbs: Number.isFinite(carbs) ? carbs : 0,
+              fats: Number.isFinite(fats) ? fats : 0,
+            }
+          : f
+      )
+    )
+
+    setEditingId(null)
+  }
 
   const handleSave = async () => {
     if (foods.length === 0) return
@@ -307,20 +392,88 @@ function LogMealPageContent() {
                 key={food.id}
                 className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
               >
-                <div>
-                  <p className="font-medium">{food.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {food.quantity} x {food.unit} - {Math.round(food.calories * food.quantity)} cal
-                  </p>
+                <div className="flex-1">
+                  {editingId === food.id && food.source === "manual" ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input
+                        placeholder="Food name"
+                        value={editFood.name}
+                        onChange={(e) => setEditFood({ ...editFood, name: e.target.value })}
+                      />
+                      <Input
+                        placeholder="Unit"
+                        value={editFood.unit}
+                        onChange={(e) => setEditFood({ ...editFood, unit: e.target.value })}
+                      />
+                      <Input
+                        placeholder="Quantity"
+                        inputMode="decimal"
+                        value={editFood.quantity}
+                        onChange={(e) => setEditFood({ ...editFood, quantity: e.target.value })}
+                      />
+                      <Input
+                        placeholder="Calories"
+                        inputMode="decimal"
+                        value={editFood.calories}
+                        onChange={(e) => setEditFood({ ...editFood, calories: e.target.value })}
+                      />
+                      <Input
+                        placeholder="Protein (g)"
+                        inputMode="decimal"
+                        value={editFood.protein}
+                        onChange={(e) => setEditFood({ ...editFood, protein: e.target.value })}
+                      />
+                      <Input
+                        placeholder="Carbs (g)"
+                        inputMode="decimal"
+                        value={editFood.carbs}
+                        onChange={(e) => setEditFood({ ...editFood, carbs: e.target.value })}
+                      />
+                      <Input
+                        placeholder="Fats (g)"
+                        inputMode="decimal"
+                        value={editFood.fats}
+                        onChange={(e) => setEditFood({ ...editFood, fats: e.target.value })}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <p className="font-medium">{food.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {food.quantity} x {food.unit} - {Math.round(food.calories * food.quantity)} cal
+                      </p>
+                    </>
+                  )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => removeFood(food.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  {food.source === "manual" && editingId !== food.id && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => startEdit(food)}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  {food.source === "manual" && editingId === food.id && (
+                    <>
+                      <Button size="sm" onClick={saveEdit}>
+                        Save
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={cancelEdit}>
+                        Cancel
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => removeFood(food.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -344,18 +497,24 @@ function LogMealPageContent() {
       <div>
         <h2 className="mb-3 font-semibold">Quick Add</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {commonFoods.slice(0, 6).map((food, index) => (
+          {frequentLoading && (
+            <p className="text-sm text-muted-foreground">Loading your frequent foods...</p>
+          )}
+          {!frequentLoading && frequentFoods.length === 0 && (
+            <p className="text-sm text-muted-foreground">Log a few {mealType} meals to build your quick add list.</p>
+          )}
+          {!frequentLoading && frequentFoods.length > 0 && frequentFoods.map((food, index) => (
             <GlassCard
-              key={index}
+              key={`${food.name}-${index}`}
               className={cn(
                 "p-3 cursor-pointer transition-colors hover:bg-white/[0.07]",
                 foods.some(f => f.name === food.name) && "ring-1 ring-primary"
               )}
-              onClick={() => addCommonFood(food)}
+              onClick={() => addFrequentFood(food)}
             >
               <p className="font-medium text-sm truncate">{food.name}</p>
               <p className="text-xs text-muted-foreground">
-                {food.calories} cal / {food.unit}
+                {Math.round(food.calories)} cal / {food.unit}
               </p>
             </GlassCard>
           ))}
@@ -379,11 +538,11 @@ function LogMealPageContent() {
             <Label htmlFor="quantity">Quantity</Label>
             <Input
               id="quantity"
-              type="number"
-              min="0.1"
-              step="0.1"
+              type="text"
+              inputMode="decimal"
+              placeholder="e.g., 1, 0.5, 150"
               value={manualFood.quantity}
-              onChange={(e) => setManualFood({ ...manualFood, quantity: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => setManualFood({ ...manualFood, quantity: e.target.value })}
             />
           </div>
           <div className="space-y-2">
@@ -399,43 +558,44 @@ function LogMealPageContent() {
             <Label htmlFor="calories">Calories</Label>
             <Input
               id="calories"
-              type="number"
-              min="0"
+              type="text"
+              inputMode="decimal"
+              placeholder="e.g., 200"
               value={manualFood.calories}
-              onChange={(e) => setManualFood({ ...manualFood, calories: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => setManualFood({ ...manualFood, calories: e.target.value })}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="protein">Protein (g)</Label>
             <Input
               id="protein"
-              type="number"
-              min="0"
-              step="0.1"
+              type="text"
+              inputMode="decimal"
+              placeholder="e.g., 25"
               value={manualFood.protein}
-              onChange={(e) => setManualFood({ ...manualFood, protein: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => setManualFood({ ...manualFood, protein: e.target.value })}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="carbs">Carbs (g)</Label>
             <Input
               id="carbs"
-              type="number"
-              min="0"
-              step="0.1"
+              type="text"
+              inputMode="decimal"
+              placeholder="e.g., 30"
               value={manualFood.carbs}
-              onChange={(e) => setManualFood({ ...manualFood, carbs: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => setManualFood({ ...manualFood, carbs: e.target.value })}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="fats">Fats (g)</Label>
             <Input
               id="fats"
-              type="number"
-              min="0"
-              step="0.1"
+              type="text"
+              inputMode="decimal"
+              placeholder="e.g., 10"
               value={manualFood.fats}
-              onChange={(e) => setManualFood({ ...manualFood, fats: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => setManualFood({ ...manualFood, fats: e.target.value })}
             />
           </div>
         </div>
