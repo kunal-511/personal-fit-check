@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect, Suspense } from "react"
-import { ArrowLeft, Check, Plus, Trophy, History, Loader2, X, Trash2, Pencil } from "lucide-react"
+import { ArrowLeft, Check, Plus, Trophy, History, Loader2, X, Trash2, Pencil, Download } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import html2canvas from "html2canvas"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,11 +15,14 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { workoutsApi } from "@/lib/api"
 import { useActiveWorkoutStore } from "@/lib/store"
+import { ShareableWorkoutCard } from "@/components/workouts/ShareableWorkoutCard"
+import type { Workout } from "@/types"
 
 // Template workout data
 const workoutTemplates: Record<string, { title: string; exercises: Array<{ name: string; targetSets: number; lastWeight: number; lastReps: number[]; muscleGroup: string }> }> = {
@@ -103,6 +107,9 @@ function ActiveWorkoutContent() {
   const [editingSet, setEditingSet] = useState<{ exerciseIndex: number; setIndex: number } | null>(null)
   const [editWeight, setEditWeight] = useState("")
   const [editReps, setEditReps] = useState("")
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [generatingImage, setGeneratingImage] = useState(false)
+  const [savedWorkoutId, setSavedWorkoutId] = useState<number | null>(null)
 
   // Initialize workout based on template or store
   useEffect(() => {
@@ -351,7 +358,10 @@ function ActiveWorkoutContent() {
           .filter((ex) => ex.sets.length > 0),
       }
 
-      await workoutsApi.create(workoutData)
+      const response = await workoutsApi.create(workoutData)
+      if (response?.workout_id) {
+        setSavedWorkoutId(response.workout_id)
+      }
     } catch (error) {
       console.error("Failed to save workout:", error)
     } finally {
@@ -363,6 +373,72 @@ function ActiveWorkoutContent() {
 
   const handleSummaryClose = () => {
     router.push("/workouts")
+  }
+
+  const handleShare = async () => {
+    setGeneratingImage(true)
+    setShareDialogOpen(true)
+
+    try {
+      // Wait for the dialog to render
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      const element = document.getElementById("shareable-workout-card")
+      if (!element) {
+        console.error("Shareable card element not found")
+        return
+      }
+
+      // Generate canvas from the element
+      const canvas = await html2canvas(element, {
+        backgroundColor: null,
+        scale: 2,
+        logging: false,
+      })
+
+      // Convert to blob
+      canvas.toBlob(async (blob) => {
+        if (!blob) return
+
+        const file = new File([blob], `workout-${workoutTitle.replace(/\s+/g, "-")}.png`, {
+          type: "image/png",
+        })
+
+        // Try to use Web Share API
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: `My ${workoutTitle}`,
+              text: `Check out my workout: ${workoutTitle}`,
+            })
+            setShareDialogOpen(false)
+          } catch (error) {
+            if ((error as Error).name !== "AbortError") {
+              console.error("Error sharing:", error)
+              // Fall back to download
+              downloadImage(canvas)
+            }
+          }
+        } else {
+          // Fall back to download
+          downloadImage(canvas)
+        }
+      }, "image/png")
+    } catch (error) {
+      console.error("Failed to generate image:", error)
+    } finally {
+      setGeneratingImage(false)
+    }
+  }
+
+  const downloadImage = (canvas: HTMLCanvasElement) => {
+    const url = canvas.toDataURL("image/png")
+    const link = document.createElement("a")
+    link.download = `workout-${workoutTitle.replace(/\s+/g, "-")}.png`
+    link.href = url
+    link.click()
+    setShareDialogOpen(false)
   }
 
   const selectExercise = (index: number) => {
@@ -404,9 +480,87 @@ function ActiveWorkoutContent() {
       muscleGroups: [...new Set(exercises.map((ex) => ex.muscleGroup))],
     }
 
+    // Create workout object for ShareableWorkoutCard
+    const shareableWorkout: Workout = {
+      id: savedWorkoutId || 0,
+      user_id: "1",
+      workout_type: "strength",
+      title: workoutTitle,
+      date: new Date().toISOString().split("T")[0],
+      duration_minutes: Math.round(workoutTime / 60),
+      total_volume: null,
+      notes: personalRecords.length > 0 ? `PRs achieved: ${personalRecords.join(", ")}` : null,
+      started_at: null,
+      completed_at: null,
+      exercises: exercises.map((ex, idx) => ({
+        id: idx,
+        workout_id: savedWorkoutId || 0,
+        exercise_name: ex.name,
+        muscle_group: ex.muscleGroup,
+        weight_kg: completedSets[idx]?.[0]?.weight || null,
+        sets_completed: completedSets[idx]?.length || 0,
+        target_sets: ex.targetSets,
+        notes: null,
+        sets: completedSets[idx]?.map((set, setIdx) => ({
+          id: setIdx,
+          exercise_id: idx,
+          set_number: setIdx + 1,
+          weight_kg: set.weight,
+          reps: set.reps,
+          rest_seconds: null,
+          rpe: set.rpe || null,
+        })) || [],
+      })),
+    }
+
     return (
       <div className="space-y-6">
-        <WorkoutSummary data={summaryData} onClose={handleSummaryClose} />
+        <WorkoutSummary data={summaryData} onClose={handleSummaryClose} onShare={handleShare} />
+
+        {/* Share Dialog */}
+        <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Share Workout</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="overflow-hidden rounded-2xl">
+                <ShareableWorkoutCard
+                  workout={shareableWorkout}
+                  totalSets={summaryData.totalSets}
+                  totalReps={completedSets.flat().reduce((acc, set) => acc + set.reps, 0)}
+                />
+              </div>
+              {generatingImage && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Generating image...</span>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShareDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="cursor-pointer"
+                onClick={async () => {
+                  const element = document.getElementById("shareable-workout-card")
+                  if (!element) return
+                  const canvas = await html2canvas(element, {
+                    backgroundColor: null,
+                    scale: 2,
+                    logging: false,
+                  })
+                  downloadImage(canvas)
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download Image
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }

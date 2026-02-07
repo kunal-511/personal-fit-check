@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import html2canvas from "html2canvas"
 import {
   ArrowLeft,
   Calendar,
@@ -18,6 +19,7 @@ import {
   Edit,
   Share2,
   Loader2,
+  Download,
 } from "lucide-react"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -40,6 +42,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { workoutsApi } from "@/lib/api"
+import { ShareableWorkoutCard } from "@/components/workouts/ShareableWorkoutCard"
 import type { Workout, Exercise } from "@/types"
 
 const muscleGroupColors: Record<string, string> = {
@@ -64,6 +67,8 @@ export default function WorkoutHistoryDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editForm, setEditForm] = useState({ title: "", notes: "" })
   const [savingEdit, setSavingEdit] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [generatingImage, setGeneratingImage] = useState(false)
 
   useEffect(() => {
     async function fetchWorkout() {
@@ -164,6 +169,73 @@ export default function WorkoutHistoryDetailPage() {
     }
   }
 
+  const handleShare = async () => {
+    if (!workout) return
+    setGeneratingImage(true)
+    setShareDialogOpen(true)
+
+    try {
+      // Wait for the dialog to render
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      const element = document.getElementById("shareable-workout-card")
+      if (!element) {
+        console.error("Shareable card element not found")
+        return
+      }
+
+      // Generate canvas from the element
+      const canvas = await html2canvas(element, {
+        backgroundColor: null,
+        scale: 2,
+        logging: false,
+      })
+
+      // Convert to blob
+      canvas.toBlob(async (blob) => {
+        if (!blob) return
+
+        const file = new File([blob], `workout-${workout.title.replace(/\s+/g, "-")}.png`, {
+          type: "image/png",
+        })
+
+        // Try to use Web Share API
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: `My ${workout.title}`,
+              text: `Check out my workout: ${workout.title}`,
+            })
+            setShareDialogOpen(false)
+          } catch (error) {
+            if ((error as Error).name !== "AbortError") {
+              console.error("Error sharing:", error)
+              // Fall back to download
+              downloadImage(canvas)
+            }
+          }
+        } else {
+          // Fall back to download
+          downloadImage(canvas)
+        }
+      }, "image/png")
+    } catch (error) {
+      console.error("Failed to generate image:", error)
+    } finally {
+      setGeneratingImage(false)
+    }
+  }
+
+  const downloadImage = (canvas: HTMLCanvasElement) => {
+    const url = canvas.toDataURL("image/png")
+    const link = document.createElement("a")
+    link.download = `workout-${workout?.title.replace(/\s+/g, "-")}.png`
+    link.href = url
+    link.click()
+    setShareDialogOpen(false)
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -231,7 +303,7 @@ export default function WorkoutHistoryDetailPage() {
               <MoreHorizontal className="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent className="w-48 " align="end">
             <DropdownMenuItem>
               <Copy className="h-4 w-4 mr-2" />
               Repeat Workout
@@ -243,7 +315,7 @@ export default function WorkoutHistoryDetailPage() {
               <Edit className="h-4 w-4 mr-2" />
               Edit Workout
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleShare}>
               <Share2 className="h-4 w-4 mr-2" />
               Share
             </DropdownMenuItem>
@@ -463,6 +535,54 @@ export default function WorkoutHistoryDetailPage() {
             <Button onClick={handleSaveWorkoutEdit} disabled={savingEdit}>
               {savingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Share Workout</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            {workout && (
+              <div className="overflow-hidden rounded-2xl">
+                <ShareableWorkoutCard
+                  workout={workout}
+                  totalSets={calculateTotalStats().totalSets}
+                  totalReps={calculateTotalStats().totalReps}
+                />
+              </div>
+            )}
+            {generatingImage && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Generating image...</span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShareDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="cursor-pointer"
+              onClick={async () => {
+                if (!workout) return
+                const element = document.getElementById("shareable-workout-card")
+                if (!element) return
+                const canvas = await html2canvas(element, {
+                  backgroundColor: null,
+                  scale: 2,
+                  logging: false,
+                })
+                downloadImage(canvas)
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download Image
             </Button>
           </DialogFooter>
         </DialogContent>

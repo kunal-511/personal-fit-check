@@ -271,7 +271,7 @@ export default function WorkoutsPage() {
 function WorkoutCard({ workout }: { workout: Workout }) {
   return (
     <Link href={`/workouts/history/${workout.id}`}>
-      <GlassCard className="p-4 hover:bg-white/[0.05] transition-colors cursor-pointer">
+      <GlassCard className="p-4 hover:bg-white/5 transition-colors cursor-pointer my-4">
         <div className="flex items-center gap-4">
           <div className={cn(
             "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
