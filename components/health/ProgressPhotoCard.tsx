@@ -15,7 +15,7 @@ interface ProgressPhotoCardProps {
 
 const CATEGORY_COLORS = {
   front: "bg-primary/20 text-primary",
-  side: "bg-purple-500/20 text-purple-400",
+  side: "bg-emerald-500/20 text-emerald-400",
   back: "bg-amber-500/20 text-amber-400",
 }
 

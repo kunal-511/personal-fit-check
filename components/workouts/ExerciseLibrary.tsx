@@ -105,7 +105,7 @@ const muscleGroupColors: Record<MuscleGroup, string> = {
   chest: "bg-red-500/10 text-red-500",
   back: "bg-blue-500/10 text-blue-500",
   shoulders: "bg-orange-500/10 text-orange-500",
-  biceps: "bg-purple-500/10 text-purple-500",
+  biceps: "bg-emerald-500/10 text-emerald-500",
   triceps: "bg-pink-500/10 text-pink-500",
   legs: "bg-green-500/10 text-green-500",
   core: "bg-amber-500/10 text-amber-500",

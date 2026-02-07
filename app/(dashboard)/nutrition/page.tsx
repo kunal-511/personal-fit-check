@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Plus, Apple, Coffee, Moon, Sun, Trash2, Droplets, Loader2 } from "lucide-react"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { nutritionApi } from "@/lib/api"
+import { useAppStore, formatDateForApi } from "@/lib/store"
+import { format, isToday } from "date-fns"
 import Link from "next/link"
 import type { DailyNutrition } from "@/types"
 
@@ -29,6 +31,8 @@ const mealColors: Record<string, string> = {
 }
 
 export default function NutritionPage() {
+  const selectedDate = useAppStore((s) => s.selectedDate)
+  const dateStr = formatDateForApi(selectedDate)
   const [data, setData] = useState<DailyNutrition | null>(null)
   const [waterData, setWaterData] = useState<{ total: number; logs: Array<{ id: number; amount_ml: number }> }>({ total: 0, logs: [] })
   const [loading, setLoading] = useState(true)
@@ -46,11 +50,12 @@ export default function NutritionPage() {
     water_ml: "4000",
   })
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    setLoading(true)
     try {
       const [nutritionRes, waterRes] = await Promise.all([
-        nutritionApi.getDaily().catch(() => null),
-        nutritionApi.getWater().catch(() => ({ total: 0, logs: [] })),
+        nutritionApi.getDaily(dateStr).catch(() => null),
+        nutritionApi.getWater(dateStr).catch(() => ({ total: 0, logs: [] })),
       ])
       setData(nutritionRes)
       setWaterData(waterRes || { total: 0, logs: [] })
@@ -59,16 +64,16 @@ export default function NutritionPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [dateStr])
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [fetchData])
 
   const handleAddWater = async (amount: number) => {
     setAddingWater(true)
     try {
-      const result = await nutritionApi.logWater(amount)
+      const result = await nutritionApi.logWater(amount, dateStr)
       if (result.success) {
         setWaterData(prev => ({ ...prev, total: result.total }))
       }
@@ -376,7 +381,7 @@ export default function NutritionPage() {
 
           {/* Meals */}
           <div>
-            <h2 className="mb-4 font-semibold">Today&apos;s Meals</h2>
+            <h2 className="mb-4 font-semibold">{isToday(selectedDate) ? "Today's" : format(selectedDate, "MMM d")} Meals</h2>
             {meals.length > 0 ? (
               <div className="space-y-3">
                 {meals.map((meal) => {
@@ -457,7 +462,7 @@ export default function NutritionPage() {
               <GlassCard className="p-8">
                 <div className="flex flex-col items-center justify-center">
                   <Apple className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                  <p className="text-sm text-muted-foreground">No meals logged today</p>
+                  <p className="text-sm text-muted-foreground">No meals logged {isToday(selectedDate) ? "today" : `on ${format(selectedDate, "MMM d")}`}</p>
                   <Link href="/nutrition/log" className="mt-2 text-sm text-primary hover:underline">
                     Log your first meal
                   </Link>

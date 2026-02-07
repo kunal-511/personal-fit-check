@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { ArrowLeft, Plus, X, Dumbbell, Timer, Play, Bookmark, Activity } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -96,21 +96,33 @@ interface Exercise {
 }
 
 export default function NewWorkoutPage() {
+  return (
+    <Suspense>
+      <NewWorkoutContent />
+    </Suspense>
+  )
+}
+
+function NewWorkoutContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const startWorkoutStore = useActiveWorkoutStore((state) => state.startWorkout)
   const [workoutType, setWorkoutType] = useState("strength")
   const [title, setTitle] = useState("")
   const [selectedMuscle, setSelectedMuscle] = useState("Chest")
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [showExerciseLibrary, setShowExerciseLibrary] = useState(false)
+  const lastQuickAdd = useRef<string | null>(null)
+
+  const addExerciseToList = (exercise: { id: string; name: string; muscleGroup: string }) => {
+    setExercises((prev) => {
+      if (prev.find((e) => e.id === exercise.id)) return prev
+      return [...prev, { ...exercise, sets: 3 }]
+    })
+  }
 
   const addExercise = (exercise: { id: string; name: string; muscleGroup: string }) => {
-    if (!exercises.find((e) => e.id === exercise.id)) {
-      setExercises([
-        ...exercises,
-        { ...exercise, sets: 3 },
-      ])
-    }
+    addExerciseToList(exercise)
     setShowExerciseLibrary(false)
   }
 
@@ -123,6 +135,22 @@ export default function NewWorkoutPage() {
       e.id === id ? { ...e, sets: Math.max(1, sets) } : e
     ))
   }
+
+  useEffect(() => {
+    const exerciseName = searchParams.get("exercise")
+    if (!exerciseName) return
+    if (lastQuickAdd.current === exerciseName) return
+
+    const muscleGroup = searchParams.get("muscle") || "Full Body"
+    const id = `quick-${exerciseName.toLowerCase().replace(/\s+/g, "-")}`
+
+    addExerciseToList({
+      id,
+      name: exerciseName,
+      muscleGroup,
+    })
+    lastQuickAdd.current = exerciseName
+  }, [searchParams])
 
   const startWorkout = () => {
     const workoutTitle = title || `${selectedMuscle} Workout`

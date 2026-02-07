@@ -43,7 +43,6 @@ const cardioTypes: { type: CardioType; label: string; icon: typeof Footprints; c
   { type: "running", label: "Running", icon: Footprints, color: "text-orange-500" },
   { type: "cycling", label: "Cycling", icon: Bike, color: "text-blue-500" },
   { type: "swimming", label: "Swimming", icon: Waves, color: "text-cyan-500" },
-  { type: "rowing", label: "Rowing", icon: Activity, color: "text-purple-500" },
   { type: "walking", label: "Walking", icon: Footprints, color: "text-green-500" },
   { type: "hiking", label: "Hiking", icon: Mountain, color: "text-amber-500" },
 ]
@@ -158,7 +157,7 @@ export function CardioLogger({ onSave, onCancel, className }: CardioLoggerProps)
       <div className="flex items-center gap-3 mb-6">
         <div className={cn(
           "flex h-12 w-12 items-center justify-center rounded-xl",
-          "bg-gradient-to-br from-orange-500/20 to-red-500/20"
+          "bg-linear-to-br from-orange-500/20 to-red-500/20"
         )}>
           <Activity className="h-6 w-6 text-orange-500" />
         </div>
@@ -206,7 +205,7 @@ export function CardioLogger({ onSave, onCancel, className }: CardioLoggerProps)
         <div className={cn(
           "inline-flex flex-col items-center justify-center",
           "w-48 h-48 rounded-full",
-          "bg-gradient-to-br from-primary/10 to-primary/5",
+          "bg-linear-to-br from-primary/10 to-primary/5",
           "border-4",
           isActive && !isPaused ? "border-primary" : "border-border"
         )}>

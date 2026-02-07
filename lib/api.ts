@@ -138,6 +138,16 @@ export const workoutsApi = {
   getByDate: (date: string) =>
     fetcher<{ workouts: Workout[] }>(`/workouts?date=${date}`),
 
+  getFrequentExercises: (limit?: number) =>
+    fetcher<{
+      exercises: Array<{
+        exercise_name: string
+        muscle_group: string | null
+        count: number
+        last_used: string
+      }>
+    }>(`/workouts/frequent${limit ? `?limit=${limit}` : ""}`),
+
   create: (data: WorkoutFormData & { date?: string; duration_minutes?: number }) =>
     fetcher<{ success: boolean; workout_id: number }>("/workouts", {
       method: "POST",

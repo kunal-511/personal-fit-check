@@ -13,7 +13,6 @@ export default function DashboardLayout({
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [selectedDate, setSelectedDate] = useState(new Date())
 
   return (
     <div className="min-h-screen bg-background">
@@ -44,8 +43,6 @@ export default function DashboardLayout({
       >
         <Header
           onMenuClick={() => setMobileMenuOpen(true)}
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
         />
 
         <motion.main

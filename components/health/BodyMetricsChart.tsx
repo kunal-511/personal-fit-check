@@ -34,7 +34,7 @@ const metricConfig: Record<MetricType, {
     label: "Body Fat",
     unit: "%",
     field: "body_fat_percent",
-    color: "bg-purple-500",
+    color: "bg-emerald-500",
     icon: Activity,
   },
   waist: {

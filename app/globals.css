@@ -39,7 +39,7 @@
   /* Custom fitness colors */
   --emerald: 160 84% 39%;
   --amber: 38 92% 50%;
-  --purple: 258 90% 66%;
+  --purple: 160 84% 35%;
   --success: 160 84% 39%;
   --warning: 38 92% 50%;
 }
@@ -65,7 +65,7 @@
   --muted: 217.2 32.6% 17.5%;
   --muted-foreground: 215 20.2% 65.1%;
 
-  --accent: 258 90% 66%;
+  --accent: 160 84% 39%;
   --accent-foreground: 210 40% 98%;
 
   --destructive: 0 62.8% 50.6%;
@@ -268,11 +268,11 @@ body {
 }
 
 .gradient-accent {
-  background: linear-gradient(135deg, hsl(258 90% 66%), hsl(258 90% 56%));
+  background: linear-gradient(135deg, hsl(160 84% 45%), hsl(160 84% 35%));
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, hsl(160 84% 50%), hsl(258 90% 66%));
+  background: linear-gradient(135deg, hsl(160 84% 50%), hsl(160 84% 35%));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;

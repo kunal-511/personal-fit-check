@@ -90,7 +90,6 @@ db/
 ## Design System
 
 - **Primary**: Emerald (`hsl(160 84% 39%)`)
-- **Accent**: Purple (`hsl(258 90% 66%)`)
 - **Warning**: Amber (`hsl(38 92% 50%)`)
 - **Background**: Deep slate (`hsl(222.2 84% 4.9%)`)
 - **Style**: Glassmorphism cards with backdrop blur

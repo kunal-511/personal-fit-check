@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Dumbbell, Play, Clock, ChevronRight} from "lucide-react"
+import { Plus, Dumbbell, Play, Clock, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -23,12 +23,22 @@ export default function WorkoutsPage() {
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTab, setSelectedTab] = useState("overview")
+  const [frequentExercises, setFrequentExercises] = useState<Array<{
+    exercise_name: string
+    muscle_group: string | null
+    count: number
+    last_used: string
+  }>>([])
 
   useEffect(() => {
     async function fetchWorkouts() {
       try {
-        const res = await workoutsApi.getAll(20)
-        setWorkouts(res?.workouts || [])
+        const [workoutsRes, frequentRes] = await Promise.all([
+          workoutsApi.getAll(20).catch(() => ({ workouts: [] })),
+          workoutsApi.getFrequentExercises(6).catch(() => ({ exercises: [] })),
+        ])
+        setWorkouts(workoutsRes?.workouts || [])
+        setFrequentExercises(frequentRes?.exercises || [])
       } catch (error) {
         console.error("Failed to fetch workouts:", error)
       } finally {
@@ -144,6 +154,47 @@ export default function WorkoutsPage() {
                 </Link>
               ))}
             </div>
+          </div>
+
+          {/* Frequent Exercises */}
+          <div>
+            <h2 className="mb-3 font-semibold">Frequent Exercises</h2>
+            {frequentExercises.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {frequentExercises.map((exercise) => {
+                  const params = new URLSearchParams({
+                    exercise: exercise.exercise_name,
+                    muscle: exercise.muscle_group || "",
+                  })
+                  return (
+                    <Link
+                      key={`${exercise.exercise_name}-${exercise.muscle_group ?? "none"}`}
+                      href={`/workouts/new?${params.toString()}`}
+                    >
+                      <GlassCard className="cursor-pointer p-4 transition-all hover:bg-white/[0.07]">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                            <Dumbbell className="h-5 w-5 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{exercise.exercise_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {exercise.count}x • {exercise.muscle_group || "General"}
+                            </p>
+                          </div>
+                        </div>
+                      </GlassCard>
+                    </Link>
+                  )
+                })}
+              </div>
+            ) : (
+              <GlassCard className="p-6">
+                <p className="text-sm text-muted-foreground">
+                  Log a few workouts to see your most frequent exercises here.
+                </p>
+              </GlassCard>
+            )}
           </div>
 
           {/* Recent Workouts Preview */}

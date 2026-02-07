@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Menu, Calendar, ChevronLeft, ChevronRight, LogOut } from "lucide-react"
 import { format, addDays, subDays } from "date-fns"
@@ -12,22 +11,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { useAppStore } from "@/lib/store"
 
 interface HeaderProps {
   onMenuClick?: () => void
-  selectedDate?: Date
-  onDateChange?: (date: Date) => void
   title?: string
 }
 
 export function Header({
   onMenuClick,
-  selectedDate = new Date(),
-  onDateChange,
   title,
 }: HeaderProps) {
   const router = useRouter()
-  const [date, setDate] = useState(selectedDate)
+  const date = useAppStore((s) => s.selectedDate)
+  const setDate = useAppStore((s) => s.setSelectedDate)
 
   const handleLogout = async () => {
     await fetch("/api/auth", { method: "DELETE" })
@@ -36,21 +33,15 @@ export function Header({
   }
 
   const handlePreviousDay = () => {
-    const newDate = subDays(date, 1)
-    setDate(newDate)
-    onDateChange?.(newDate)
+    setDate(subDays(date, 1))
   }
 
   const handleNextDay = () => {
-    const newDate = addDays(date, 1)
-    setDate(newDate)
-    onDateChange?.(newDate)
+    setDate(addDays(date, 1))
   }
 
   const handleToday = () => {
-    const today = new Date()
-    setDate(today)
-    onDateChange?.(today)
+    setDate(new Date())
   }
 
   const isToday = format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd")

@@ -148,7 +148,7 @@ export function WorkoutSummary({
           </div>
         </div>
         <div className="flex items-center gap-3 p-4 rounded-xl bg-secondary/50">
-          <TrendingUp className="h-6 w-6 text-purple-500" />
+          <TrendingUp className="h-6 w-6 text-primary" />
           <div>
             <p className="text-2xl font-bold">NA</p>
             <p className="text-xs text-muted-foreground">Volume (kg)</p>

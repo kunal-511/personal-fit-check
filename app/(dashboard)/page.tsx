@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Utensils, Dumbbell, Heart, Droplets, TrendingUp, Flame} from "lucide-react"
 import Link from "next/link"
 import { GlassCard } from "@/components/ui/card"
@@ -8,6 +8,7 @@ import { CircularProgress, Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn, getGreeting, formatNumber, formatDate } from "@/lib/utils"
 import { nutritionApi, workoutsApi, healthApi } from "@/lib/api"
+import { useAppStore, formatDateForApi } from "@/lib/store"
 import type { DailyNutrition, Workout } from "@/types"
 
 interface DashboardData {
@@ -23,45 +24,48 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
+  const selectedDate = useAppStore((s) => s.selectedDate)
+  const dateStr = formatDateForApi(selectedDate)
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function fetchDashboardData() {
-      try {
-        const [nutritionRes, waterRes, workoutsRes, healthRes] = await Promise.all([
-          nutritionApi.getDaily().catch(() => null),
-          nutritionApi.getWater().catch(() => ({ total: 0, logs: [] })),
-          workoutsApi.getAll(5).catch(() => ({ workouts: [] })),
-          healthApi.getBodyMetrics(30).catch(() => ({ latest: null, changes: null })),
-        ])
+  const fetchDashboardData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [nutritionRes, waterRes, workoutsRes, healthRes] = await Promise.all([
+        nutritionApi.getDaily(dateStr).catch(() => null),
+        nutritionApi.getWater(dateStr).catch(() => ({ total: 0, logs: [] })),
+        workoutsApi.getAll(5).catch(() => ({ workouts: [] })),
+        healthApi.getBodyMetrics(30).catch(() => ({ latest: null, changes: null })),
+      ])
 
-        // Try to get recovery data
-        const recoveryRes = await healthApi.getRecovery().catch(() => null)
+      // Try to get recovery data
+      const recoveryRes = await healthApi.getRecovery(dateStr).catch(() => null)
 
-        setData({
-          nutrition: nutritionRes,
-          water: {
-            total: waterRes?.total || 0,
-            target: nutritionRes?.goals?.water_ml || 4000,
-          },
-          workouts: workoutsRes?.workouts || [],
-          health: {
-            weight: healthRes?.latest?.weight_kg || null,
-            weightChange: healthRes?.changes?.weight || null,
-            recovery: recoveryRes?.recovery?.recovery_score || null,
-            sleep: recoveryRes?.sleep?.hours_slept || null,
-          },
-        })
-      } catch (error) {
-        console.error("Failed to fetch dashboard data:", error)
-      } finally {
-        setLoading(false)
-      }
+      setData({
+        nutrition: nutritionRes,
+        water: {
+          total: waterRes?.total || 0,
+          target: nutritionRes?.goals?.water_ml || 4000,
+        },
+        workouts: workoutsRes?.workouts || [],
+        health: {
+          weight: healthRes?.latest?.weight_kg || null,
+          weightChange: healthRes?.changes?.weight || null,
+          recovery: recoveryRes?.recovery?.recovery_score || null,
+          sleep: recoveryRes?.sleep?.hours_slept || null,
+        },
+      })
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error)
+    } finally {
+      setLoading(false)
     }
+  }, [dateStr])
 
+  useEffect(() => {
     fetchDashboardData()
-  }, [])
+  }, [fetchDashboardData])
 
   if (loading) {
     return <DashboardSkeleton />
