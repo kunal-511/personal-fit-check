@@ -58,8 +58,6 @@ export default function NutritionPage() {
   })
   const [editingMeal, setEditingMeal] = useState<any | null>(null)
   const [editMealForm, setEditMealForm] = useState({
-    meal_name: "",
-    meal_type: "",
     foods: [] as any[],
   })
   const [savingEdit, setSavingEdit] = useState(false)
@@ -137,8 +135,6 @@ export default function NutritionPage() {
   const handleOpenEditMeal = (meal: any) => {
     setEditingMeal(meal)
     setEditMealForm({
-      meal_name: meal.meal_name || "",
-      meal_type: meal.meal_type,
       foods: (meal.food_items || []).map((f: any) => ({
         id: crypto.randomUUID(),
         food_name: f.food_name || f.name,
@@ -158,8 +154,6 @@ export default function NutritionPage() {
     try {
       await nutritionApi.updateMeal({
         id: editingMeal.id,
-        meal_name: editMealForm.meal_name,
-        meal_type: editMealForm.meal_type,
         food_items: editMealForm.foods.map(f => ({
           food_name: f.food_name,
           quantity: f.quantity,
@@ -590,32 +584,11 @@ export default function NutritionPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="editMealName">Meal Name</Label>
-              <Input
-                id="editMealName"
-                value={editMealForm.meal_name}
-                onChange={(e) => setEditMealForm({ ...editMealForm, meal_name: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Meal Type</Label>
-              <Tabs value={editMealForm.meal_type} onValueChange={(val) => setEditMealForm({ ...editMealForm, meal_type: val })}>
-                <TabsList className="w-full">
-                  <TabsTrigger value="breakfast" className="flex-1">Breakfast</TabsTrigger>
-                  <TabsTrigger value="lunch" className="flex-1">Lunch</TabsTrigger>
-                  <TabsTrigger value="dinner" className="flex-1">Dinner</TabsTrigger>
-                  <TabsTrigger value="snack" className="flex-1">Snack</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-
-            <div className="space-y-2">
               <Label>Food Items</Label>
               <div className="space-y-3">
                 {editMealForm.foods.map((food, idx) => (
-                  <div key={food.id} className="grid gap-2 p-3 rounded-lg bg-secondary/30">
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={food.id} className="grid gap-3 p-3 rounded-lg bg-secondary/30">
+                    <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Item {idx + 1}</span>
                       <Button
                         variant="ghost"
@@ -631,75 +604,108 @@ export default function NutritionPage() {
                         <XIcon className="h-4 w-4" />
                       </Button>
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <Input
-                        placeholder="Food name"
-                        value={food.food_name}
-                        onChange={(e) => {
-                          const newFoods = [...editMealForm.foods]
-                          newFoods[idx].food_name = e.target.value
-                          setEditMealForm({ ...editMealForm, foods: newFoods })
-                        }}
-                      />
-                      <Input
-                        placeholder="Quantity"
-                        type="number"
-                        value={food.quantity}
-                        onChange={(e) => {
-                          const newFoods = [...editMealForm.foods]
-                          newFoods[idx].quantity = Number.parseFloat(e.target.value) || 1
-                          setEditMealForm({ ...editMealForm, foods: newFoods })
-                        }}
-                      />
-                      <Input
-                        placeholder="Unit"
-                        value={food.unit}
-                        onChange={(e) => {
-                          const newFoods = [...editMealForm.foods]
-                          newFoods[idx].unit = e.target.value
-                          setEditMealForm({ ...editMealForm, foods: newFoods })
-                        }}
-                      />
-                      <Input
-                        placeholder="Calories"
-                        type="number"
-                        value={food.calories}
-                        onChange={(e) => {
-                          const newFoods = [...editMealForm.foods]
-                          newFoods[idx].calories = Number.parseFloat(e.target.value) || 0
-                          setEditMealForm({ ...editMealForm, foods: newFoods })
-                        }}
-                      />
-                      <Input
-                        placeholder="Protein (g)"
-                        type="number"
-                        value={food.protein_g}
-                        onChange={(e) => {
-                          const newFoods = [...editMealForm.foods]
-                          newFoods[idx].protein_g = Number.parseFloat(e.target.value) || 0
-                          setEditMealForm({ ...editMealForm, foods: newFoods })
-                        }}
-                      />
-                      <Input
-                        placeholder="Carbs (g)"
-                        type="number"
-                        value={food.carbs_g}
-                        onChange={(e) => {
-                          const newFoods = [...editMealForm.foods]
-                          newFoods[idx].carbs_g = Number.parseFloat(e.target.value) || 0
-                          setEditMealForm({ ...editMealForm, foods: newFoods })
-                        }}
-                      />
-                      <Input
-                        placeholder="Fats (g)"
-                        type="number"
-                        value={food.fats_g}
-                        onChange={(e) => {
-                          const newFoods = [...editMealForm.foods]
-                          newFoods[idx].fats_g = Number.parseFloat(e.target.value) || 0
-                          setEditMealForm({ ...editMealForm, foods: newFoods })
-                        }}
-                      />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Food Name</Label>
+                        <Input
+                          placeholder="e.g., Chicken Breast"
+                          value={food.food_name}
+                          className="bg-transparent"
+                          onChange={(e) => {
+                            const newFoods = [...editMealForm.foods]
+                            newFoods[idx].food_name = e.target.value
+                            setEditMealForm({ ...editMealForm, foods: newFoods })
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Quantity</Label>
+                        <Input
+                          placeholder="1"
+                          type="text"
+                          inputMode="decimal"
+                          value={food.quantity}
+                          className="bg-transparent"
+                          onChange={(e) => {
+                            const newFoods = [...editMealForm.foods]
+                            newFoods[idx].quantity = Number.parseFloat(e.target.value) || 1
+                            setEditMealForm({ ...editMealForm, foods: newFoods })
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Unit</Label>
+                        <Input
+                          placeholder="e.g., serving, g, oz"
+                          value={food.unit}
+                          className="bg-transparent"
+                          onChange={(e) => {
+                            const newFoods = [...editMealForm.foods]
+                            newFoods[idx].unit = e.target.value
+                            setEditMealForm({ ...editMealForm, foods: newFoods })
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Calories</Label>
+                        <Input
+                          placeholder="0"
+                          type="text"
+                          inputMode="decimal"
+                          value={food.calories}
+                          className="bg-transparent"
+                          onChange={(e) => {
+                            const newFoods = [...editMealForm.foods]
+                            newFoods[idx].calories = Number.parseFloat(e.target.value) || 0
+                            setEditMealForm({ ...editMealForm, foods: newFoods })
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Protein (g)</Label>
+                        <Input
+                          placeholder="0"
+                          type="text"
+                          inputMode="decimal"
+                          value={food.protein_g}
+                          className="bg-transparent"
+                          onChange={(e) => {
+                            const newFoods = [...editMealForm.foods]
+                            newFoods[idx].protein_g = Number.parseFloat(e.target.value) || 0
+                            setEditMealForm({ ...editMealForm, foods: newFoods })
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Carbs (g)</Label>
+                        <Input
+                          placeholder="0"
+                          type="text"
+                          inputMode="decimal"
+                          value={food.carbs_g}
+                          className="bg-transparent"
+                          onChange={(e) => {
+                            const newFoods = [...editMealForm.foods]
+                            newFoods[idx].carbs_g = Number.parseFloat(e.target.value) || 0
+                            setEditMealForm({ ...editMealForm, foods: newFoods })
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Fats (g)</Label>
+                        <Input
+                          placeholder="0"
+                          type="text"
+                          inputMode="decimal"
+                          value={food.fats_g}
+                          className="bg-transparent"
+                          onChange={(e) => {
+                            const newFoods = [...editMealForm.foods]
+                            newFoods[idx].fats_g = Number.parseFloat(e.target.value) || 0
+                            setEditMealForm({ ...editMealForm, foods: newFoods })
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
