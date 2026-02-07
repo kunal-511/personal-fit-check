@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Plus, Trash2, Loader2, Check, Sparkles, Send } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Loader2, Check, Sparkles, Send, Calendar } from "lucide-react"
 import Link from "next/link"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { nutritionApi } from "@/lib/api"
+import { useAppStore, formatDateForApi } from "@/lib/store"
+import { format, isToday } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -63,6 +65,8 @@ function LogMealPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const defaultType = searchParams.get("type") || "lunch"
+  const selectedDate = useAppStore((s) => s.selectedDate)
+  const dateStr = formatDateForApi(selectedDate)
 
   const [mealType, setMealType] = useState(defaultType)
   const [mealName, setMealName] = useState("")
@@ -269,6 +273,7 @@ function LogMealPageContent() {
       await nutritionApi.logMeal({
         meal_type: mealType as "breakfast" | "lunch" | "dinner" | "snack",
         meal_name: mealName || `${mealType.charAt(0).toUpperCase() + mealType.slice(1)}`,
+        date: dateStr,
         food_items: foods.map(f => ({
           food_name: f.name,
           quantity: f.quantity,
@@ -324,6 +329,16 @@ function LogMealPageContent() {
           <p className="text-muted-foreground">Add food to your diary</p>
         </div>
       </div>
+
+      {/* Past date banner */}
+      {!isToday(selectedDate) && (
+        <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3 flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-amber-500 shrink-0" />
+          <span className="text-sm text-amber-500">
+            Logging for {format(selectedDate, "EEEE, MMMM d")}
+          </span>
+        </div>
+      )}
 
       {/* Meal Type Selector */}
       <Tabs value={mealType} onValueChange={setMealType}>

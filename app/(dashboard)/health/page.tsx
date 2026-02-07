@@ -8,9 +8,12 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BodyMetricsChart, SleepChart, RecoveryScoreDisplay, ProgressPhotosGallery } from "@/components/health"
 import { useHealthStore, getRecoveryRecommendation } from "@/lib/health-store"
+import { useAppStore, formatDateForApi } from "@/lib/store"
 import { cn } from "@/lib/utils"
 
 export default function HealthPage() {
+  const selectedDate = useAppStore((s) => s.selectedDate)
+  const dateStr = formatDateForApi(selectedDate)
   const {
     bodyMetrics,
     sleep,
@@ -20,12 +23,12 @@ export default function HealthPage() {
     fetchRecovery,
   } = useHealthStore()
 
-  // Fetch data on mount
+  // Fetch data when date changes
   useEffect(() => {
     fetchBodyMetrics(30)
     fetchSleep(7)
-    fetchRecovery()
-  }, [fetchBodyMetrics, fetchSleep, fetchRecovery])
+    fetchRecovery(dateStr)
+  }, [fetchBodyMetrics, fetchSleep, fetchRecovery, dateStr])
 
   const isLoading = bodyMetrics.isLoading || sleep.isLoading || recovery.isLoading
 

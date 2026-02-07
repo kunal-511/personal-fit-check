@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn, getGreeting, formatNumber, formatDate } from "@/lib/utils"
 import { nutritionApi, workoutsApi, healthApi } from "@/lib/api"
 import { useAppStore, formatDateForApi } from "@/lib/store"
+import { format, isToday } from "date-fns"
 import type { DailyNutrition, Workout } from "@/types"
 
 interface DashboardData {
@@ -95,7 +96,11 @@ export default function DashboardPage() {
       {/* Greeting */}
       <div>
         <h1 className="text-2xl font-bold">{getGreeting()}</h1>
-        <p className="text-muted-foreground">Here&apos;s your fitness overview for today</p>
+        <p className="text-muted-foreground">
+          {isToday(selectedDate)
+            ? "Here's your fitness overview for today"
+            : `Fitness overview for ${format(selectedDate, "EEEE, MMM d")}`}
+        </p>
       </div>
 
       {/* Quick Stats Grid */}
@@ -213,7 +218,9 @@ export default function DashboardPage() {
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Utensils className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Today&apos;s Macros</h2>
+              <h2 className="font-semibold">
+                {isToday(selectedDate) ? "Today's" : format(selectedDate, "MMM d")} Macros
+              </h2>
             </div>
             <Link href="/nutrition/log" className="text-xs text-primary hover:underline">
               + Log meal

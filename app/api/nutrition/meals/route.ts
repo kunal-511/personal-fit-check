@@ -73,6 +73,54 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { id, meal_type, meal_name, food_items } = body
+
+    if (!id) {
+      return NextResponse.json({ error: "Meal ID required" }, { status: 400 })
+    }
+
+    // Update meal metadata
+    if (meal_type || meal_name !== undefined) {
+      await sql`
+        UPDATE meals SET
+          meal_type = COALESCE(${meal_type ?? null}, meal_type),
+          meal_name = COALESCE(${meal_name ?? null}, meal_name)
+        WHERE id = ${id} AND user_id = ${USER_ID}
+      `
+    }
+
+    // Replace food items if provided
+    if (food_items && food_items.length > 0) {
+      await sql`DELETE FROM food_items WHERE meal_id = ${id}`
+
+      for (const item of food_items) {
+        await sql`
+          INSERT INTO food_items (
+            meal_id, food_name, quantity, unit, calories,
+            protein_g, carbs_g, fats_g
+          )
+          VALUES (
+            ${id}, ${item.food_name}, ${item.quantity || 1},
+            ${item.unit || "serving"}, ${item.calories || 0},
+            ${item.protein_g || 0}, ${item.carbs_g || 0}, ${item.fats_g || 0}
+          )
+        `
+      }
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error updating meal:", error)
+    return NextResponse.json(
+      { error: "Failed to update meal" },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const mealId = searchParams.get("id")

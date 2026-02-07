@@ -82,3 +82,54 @@ export async function GET(
     )
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+
+  try {
+    const body = await request.json()
+    const { title, notes, duration_minutes } = body
+
+    const result = await sql`
+      UPDATE workouts SET
+        title = COALESCE(${title ?? null}, title),
+        notes = COALESCE(${notes ?? null}, notes),
+        duration_minutes = COALESCE(${duration_minutes ?? null}, duration_minutes)
+      WHERE id = ${id} AND user_id = ${USER_ID}
+      RETURNING id
+    `
+
+    if (result.length === 0) {
+      return NextResponse.json({ error: "Workout not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error updating workout:", error)
+    return NextResponse.json(
+      { error: "Failed to update workout" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+
+  try {
+    await sql`DELETE FROM workouts WHERE id = ${id} AND user_id = ${USER_ID}`
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting workout:", error)
+    return NextResponse.json(
+      { error: "Failed to delete workout" },
+      { status: 500 }
+    )
+  }
+}

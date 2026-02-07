@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, Suspense } from "react"
-import { ArrowLeft, Plus, X, Dumbbell, Timer, Play, Bookmark, Activity } from "lucide-react"
+import { ArrowLeft, Plus, X, Dumbbell, Timer, Play, Bookmark, Activity, Calendar } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { GlassCard } from "@/components/ui/card"
@@ -17,7 +17,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { workoutsApi } from "@/lib/api"
-import { useActiveWorkoutStore } from "@/lib/store"
+import { useActiveWorkoutStore, useAppStore, formatDateForApi } from "@/lib/store"
+import { format, isToday } from "date-fns"
 
 // Workout templates
 const templates = [
@@ -107,6 +108,8 @@ function NewWorkoutContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const startWorkoutStore = useActiveWorkoutStore((state) => state.startWorkout)
+  const selectedDate = useAppStore((s) => s.selectedDate)
+  const dateStr = formatDateForApi(selectedDate)
   const [workoutType, setWorkoutType] = useState("strength")
   const [title, setTitle] = useState("")
   const [selectedMuscle, setSelectedMuscle] = useState("Chest")
@@ -162,7 +165,8 @@ function NewWorkoutContent() {
         name: ex.name,
         muscleGroup: ex.muscleGroup,
         targetSets: ex.sets,
-      }))
+      })),
+      !isToday(selectedDate) ? dateStr : undefined
     )
 
     router.push("/workouts/active")
@@ -188,6 +192,7 @@ function NewWorkoutContent() {
         avg_heart_rate: data.avgHeartRate,
         calories_burned: data.calories,
         notes: data.notes,
+        date: dateStr,
       })
       router.push("/workouts")
     } catch (error) {
@@ -209,6 +214,16 @@ function NewWorkoutContent() {
           <p className="text-muted-foreground">Create or start a workout</p>
         </div>
       </div>
+
+      {/* Past date banner */}
+      {!isToday(selectedDate) && (
+        <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3 flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-amber-500 shrink-0" />
+          <span className="text-sm text-amber-500">
+            Logging for {format(selectedDate, "EEEE, MMMM d")}
+          </span>
+        </div>
+      )}
 
       {/* Workout Type */}
       <Tabs value={workoutType} onValueChange={setWorkoutType}>

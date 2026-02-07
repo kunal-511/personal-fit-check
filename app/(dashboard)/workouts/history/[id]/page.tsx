@@ -17,6 +17,7 @@ import {
   Trash2,
   Edit,
   Share2,
+  Loader2,
 } from "lucide-react"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,6 +29,15 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { workoutsApi } from "@/lib/api"
 import type { Workout, Exercise } from "@/types"
@@ -51,6 +61,9 @@ export default function WorkoutHistoryDetailPage() {
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [loading, setLoading] = useState(true)
   const [expandedExercises, setExpandedExercises] = useState<Set<number>>(new Set())
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editForm, setEditForm] = useState({ title: "", notes: "" })
+  const [savingEdit, setSavingEdit] = useState(false)
 
   useEffect(() => {
     async function fetchWorkout() {
@@ -117,6 +130,38 @@ export default function WorkoutHistoryDetailPage() {
     if (!workout?.exercises) return []
     const groups = new Set(workout.exercises.map((e) => e.muscle_group).filter(Boolean))
     return Array.from(groups) as string[]
+  }
+
+  const handleSaveWorkoutEdit = async () => {
+    if (!workout) return
+    setSavingEdit(true)
+    try {
+      await workoutsApi.updateWorkout(workout.id, {
+        title: editForm.title,
+        notes: editForm.notes || undefined,
+      })
+      // Re-fetch workout data
+      const res = await workoutsApi.getById(id)
+      if (res.workout) {
+        setWorkout(res.workout)
+      }
+      setEditDialogOpen(false)
+    } catch (error) {
+      console.error("Failed to update workout:", error)
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const handleDeleteWorkout = async () => {
+    if (!workout) return
+    if (!confirm("Delete this workout? This cannot be undone.")) return
+    try {
+      await workoutsApi.deleteWorkout(workout.id)
+      router.push("/workouts")
+    } catch (error) {
+      console.error("Failed to delete workout:", error)
+    }
   }
 
   if (loading) {
@@ -191,7 +236,10 @@ export default function WorkoutHistoryDetailPage() {
               <Copy className="h-4 w-4 mr-2" />
               Repeat Workout
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              setEditForm({ title: workout.title, notes: workout.notes || "" })
+              setEditDialogOpen(true)
+            }}>
               <Edit className="h-4 w-4 mr-2" />
               Edit Workout
             </DropdownMenuItem>
@@ -200,7 +248,7 @@ export default function WorkoutHistoryDetailPage() {
               Share
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem className="text-destructive" onClick={handleDeleteWorkout}>
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
             </DropdownMenuItem>
@@ -383,6 +431,42 @@ export default function WorkoutHistoryDetailPage() {
           View All Workouts
         </Button>
       </div>
+
+      {/* Edit Workout Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Workout</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="editTitle">Title</Label>
+              <Input
+                id="editTitle"
+                value={editForm.title}
+                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editNotes">Notes</Label>
+              <Input
+                id="editNotes"
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveWorkoutEdit} disabled={savingEdit}>
+              {savingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

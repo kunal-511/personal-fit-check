@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Plus, Dumbbell, Play, Clock, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { GlassCard } from "@/components/ui/card"
@@ -10,6 +10,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn, formatDate } from "@/lib/utils"
 import { workoutsApi } from "@/lib/api"
+import { useAppStore, formatDateForApi } from "@/lib/store"
+import { format, isToday } from "date-fns"
 import type { Workout } from "@/types"
 
 const quickWorkouts = [
@@ -20,6 +22,8 @@ const quickWorkouts = [
 ]
 
 export default function WorkoutsPage() {
+  const selectedDate = useAppStore((s) => s.selectedDate)
+  const dateStr = formatDateForApi(selectedDate)
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTab, setSelectedTab] = useState("overview")
@@ -30,24 +34,25 @@ export default function WorkoutsPage() {
     last_used: string
   }>>([])
 
-  useEffect(() => {
-    async function fetchWorkouts() {
-      try {
-        const [workoutsRes, frequentRes] = await Promise.all([
-          workoutsApi.getAll(20).catch(() => ({ workouts: [] })),
-          workoutsApi.getFrequentExercises(6).catch(() => ({ exercises: [] })),
-        ])
-        setWorkouts(workoutsRes?.workouts || [])
-        setFrequentExercises(frequentRes?.exercises || [])
-      } catch (error) {
-        console.error("Failed to fetch workouts:", error)
-      } finally {
-        setLoading(false)
-      }
+  const fetchWorkouts = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [workoutsRes, frequentRes] = await Promise.all([
+        workoutsApi.getByDate(dateStr).catch(() => ({ workouts: [] })),
+        workoutsApi.getFrequentExercises(6).catch(() => ({ exercises: [] })),
+      ])
+      setWorkouts(workoutsRes?.workouts || [])
+      setFrequentExercises(frequentRes?.exercises || [])
+    } catch (error) {
+      console.error("Failed to fetch workouts:", error)
+    } finally {
+      setLoading(false)
     }
+  }, [dateStr])
 
+  useEffect(() => {
     fetchWorkouts()
-  }, [])
+  }, [fetchWorkouts])
 
   // Calculate weekly stats
   const weekAgo = new Date()
@@ -70,7 +75,9 @@ export default function WorkoutsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Workouts</h1>
-          <p className="text-muted-foreground">Track your training</p>
+          <p className="text-muted-foreground">
+            {isToday(selectedDate) ? "Track your training" : format(selectedDate, "EEEE, MMM d")}
+          </p>
         </div>
         <Link href="/workouts/new">
           <Button>

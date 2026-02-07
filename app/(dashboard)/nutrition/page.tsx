@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Plus, Apple, Coffee, Moon, Sun, Trash2, Droplets, Loader2 } from "lucide-react"
+import { Plus, Apple, Coffee, Moon, Sun, Trash2, Droplets, Loader2, Pencil, X as XIcon } from "lucide-react"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,13 @@ import { Label } from "@/components/ui/label"
 import { CircularProgress, Progress } from "@/components/ui/progress"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { nutritionApi } from "@/lib/api"
 import { useAppStore, formatDateForApi } from "@/lib/store"
@@ -49,6 +56,13 @@ export default function NutritionPage() {
     fats_g: "60",
     water_ml: "4000",
   })
+  const [editingMeal, setEditingMeal] = useState<any | null>(null)
+  const [editMealForm, setEditMealForm] = useState({
+    meal_name: "",
+    meal_type: "",
+    foods: [] as any[],
+  })
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -120,6 +134,51 @@ export default function NutritionPage() {
   const remaining = goals.daily_calories - totals.calories
   const waterPercentage = Math.round((waterData.total / waterTarget) * 100)
 
+  const handleOpenEditMeal = (meal: any) => {
+    setEditingMeal(meal)
+    setEditMealForm({
+      meal_name: meal.meal_name || "",
+      meal_type: meal.meal_type,
+      foods: (meal.food_items || []).map((f: any) => ({
+        id: crypto.randomUUID(),
+        food_name: f.food_name || f.name,
+        quantity: f.quantity || 1,
+        unit: f.unit || "serving",
+        calories: f.calories || 0,
+        protein_g: f.protein_g || f.protein || 0,
+        carbs_g: f.carbs_g || f.carbs || 0,
+        fats_g: f.fats_g || f.fats || 0,
+      })),
+    })
+  }
+
+  const handleSaveEditMeal = async () => {
+    if (!editingMeal) return
+    setSavingEdit(true)
+    try {
+      await nutritionApi.updateMeal({
+        id: editingMeal.id,
+        meal_name: editMealForm.meal_name,
+        meal_type: editMealForm.meal_type,
+        food_items: editMealForm.foods.map(f => ({
+          food_name: f.food_name,
+          quantity: f.quantity,
+          unit: f.unit,
+          calories: f.calories,
+          protein_g: f.protein_g,
+          carbs_g: f.carbs_g,
+          fats_g: f.fats_g,
+        })),
+      })
+      await fetchData()
+      setEditingMeal(null)
+    } catch (error) {
+      console.error("Failed to update meal:", error)
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
   const handleSaveGoals = async () => {
     setSavingGoals(true)
     try {
@@ -152,7 +211,9 @@ export default function NutritionPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Nutrition</h1>
-          <p className="text-muted-foreground">Track your daily intake</p>
+          <p className="text-muted-foreground">
+            {isToday(selectedDate) ? "Track your daily intake" : format(selectedDate, "EEEE, MMM d")}
+          </p>
         </div>
         <Link href="/nutrition/log">
           <Button>
@@ -165,7 +226,9 @@ export default function NutritionPage() {
       {/* View Toggle */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <TabsList className="w-full max-w-md">
-          <TabsTrigger value="today" className="flex-1">Today</TabsTrigger>
+          <TabsTrigger value="today" className="flex-1">
+            {isToday(selectedDate) ? "Today" : format(selectedDate, "MMM d")}
+          </TabsTrigger>
           <TabsTrigger value="week" className="flex-1">This Week</TabsTrigger>
         </TabsList>
 
@@ -438,20 +501,30 @@ export default function NutritionPage() {
                               </ul>
                             </>
                           )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteMeal(meal.id)}
-                            disabled={deletingMeal === meal.id}
-                          >
-                            {deletingMeal === meal.id ? (
-                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                            ) : (
-                              <Trash2 className="mr-1 h-3 w-3" />
-                            )}
-                            Delete
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEditMeal(meal)}
+                            >
+                              <Pencil className="mr-1 h-3 w-3" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteMeal(meal.id)}
+                              disabled={deletingMeal === meal.id}
+                            >
+                              {deletingMeal === meal.id ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="mr-1 h-3 w-3" />
+                              )}
+                              Delete
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </GlassCard>
@@ -508,6 +581,167 @@ export default function NutritionPage() {
           </GlassCard>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Meal Dialog */}
+      <Dialog open={editingMeal !== null} onOpenChange={(open) => !open && setEditingMeal(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Meal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="editMealName">Meal Name</Label>
+              <Input
+                id="editMealName"
+                value={editMealForm.meal_name}
+                onChange={(e) => setEditMealForm({ ...editMealForm, meal_name: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Meal Type</Label>
+              <Tabs value={editMealForm.meal_type} onValueChange={(val) => setEditMealForm({ ...editMealForm, meal_type: val })}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="breakfast" className="flex-1">Breakfast</TabsTrigger>
+                  <TabsTrigger value="lunch" className="flex-1">Lunch</TabsTrigger>
+                  <TabsTrigger value="dinner" className="flex-1">Dinner</TabsTrigger>
+                  <TabsTrigger value="snack" className="flex-1">Snack</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Food Items</Label>
+              <div className="space-y-3">
+                {editMealForm.foods.map((food, idx) => (
+                  <div key={food.id} className="grid gap-2 p-3 rounded-lg bg-secondary/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Item {idx + 1}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => {
+                          setEditMealForm({
+                            ...editMealForm,
+                            foods: editMealForm.foods.filter((_, i) => i !== idx),
+                          })
+                        }}
+                      >
+                        <XIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input
+                        placeholder="Food name"
+                        value={food.food_name}
+                        onChange={(e) => {
+                          const newFoods = [...editMealForm.foods]
+                          newFoods[idx].food_name = e.target.value
+                          setEditMealForm({ ...editMealForm, foods: newFoods })
+                        }}
+                      />
+                      <Input
+                        placeholder="Quantity"
+                        type="number"
+                        value={food.quantity}
+                        onChange={(e) => {
+                          const newFoods = [...editMealForm.foods]
+                          newFoods[idx].quantity = Number.parseFloat(e.target.value) || 1
+                          setEditMealForm({ ...editMealForm, foods: newFoods })
+                        }}
+                      />
+                      <Input
+                        placeholder="Unit"
+                        value={food.unit}
+                        onChange={(e) => {
+                          const newFoods = [...editMealForm.foods]
+                          newFoods[idx].unit = e.target.value
+                          setEditMealForm({ ...editMealForm, foods: newFoods })
+                        }}
+                      />
+                      <Input
+                        placeholder="Calories"
+                        type="number"
+                        value={food.calories}
+                        onChange={(e) => {
+                          const newFoods = [...editMealForm.foods]
+                          newFoods[idx].calories = Number.parseFloat(e.target.value) || 0
+                          setEditMealForm({ ...editMealForm, foods: newFoods })
+                        }}
+                      />
+                      <Input
+                        placeholder="Protein (g)"
+                        type="number"
+                        value={food.protein_g}
+                        onChange={(e) => {
+                          const newFoods = [...editMealForm.foods]
+                          newFoods[idx].protein_g = Number.parseFloat(e.target.value) || 0
+                          setEditMealForm({ ...editMealForm, foods: newFoods })
+                        }}
+                      />
+                      <Input
+                        placeholder="Carbs (g)"
+                        type="number"
+                        value={food.carbs_g}
+                        onChange={(e) => {
+                          const newFoods = [...editMealForm.foods]
+                          newFoods[idx].carbs_g = Number.parseFloat(e.target.value) || 0
+                          setEditMealForm({ ...editMealForm, foods: newFoods })
+                        }}
+                      />
+                      <Input
+                        placeholder="Fats (g)"
+                        type="number"
+                        value={food.fats_g}
+                        onChange={(e) => {
+                          const newFoods = [...editMealForm.foods]
+                          newFoods[idx].fats_g = Number.parseFloat(e.target.value) || 0
+                          setEditMealForm({ ...editMealForm, foods: newFoods })
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditMealForm({
+                      ...editMealForm,
+                      foods: [
+                        ...editMealForm.foods,
+                        {
+                          id: crypto.randomUUID(),
+                          food_name: "",
+                          quantity: 1,
+                          unit: "serving",
+                          calories: 0,
+                          protein_g: 0,
+                          carbs_g: 0,
+                          fats_g: 0,
+                        },
+                      ],
+                    })
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Food Item
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingMeal(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEditMeal} disabled={savingEdit}>
+              {savingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

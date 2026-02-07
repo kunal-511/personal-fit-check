@@ -318,6 +318,8 @@ function ActiveWorkoutContent() {
     setExercises(newExercises)
   }
 
+  const workoutDate = useActiveWorkoutStore((state) => state.workoutDate)
+
   const handleFinishWorkout = async () => {
     // Don't save if no sets completed
     if (completedSetsCount === 0) {
@@ -333,6 +335,7 @@ function ActiveWorkoutContent() {
         workout_type: "strength" as const,
         title: workoutTitle,
         duration_minutes: Math.round(workoutTime / 60),
+        date: workoutDate || undefined,
         notes: personalRecords.length > 0 ? `PRs achieved: ${personalRecords.join(", ")}` : undefined,
         exercises: exercises
           .map((ex, idx) => ({

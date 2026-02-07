@@ -47,6 +47,25 @@ export const nutritionApi = {
       method: "DELETE",
     }),
 
+  updateMeal: (data: {
+    id: number
+    meal_name?: string
+    meal_type?: string
+    food_items?: Array<{
+      food_name: string
+      quantity: number
+      unit: string
+      calories: number
+      protein_g: number
+      carbs_g: number
+      fats_g: number
+    }>
+  }) =>
+    fetcher<{ success: boolean }>("/nutrition/meals", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   getWater: (date?: string) =>
     fetcher<{ date: string; total: number; entries: number; logs: Array<{ id: number; amount_ml: number; logged_at: string }> }>(
       `/nutrition/water${date ? `?date=${date}` : ""}`
@@ -187,6 +206,17 @@ export const workoutsApi = {
     fetcher<{ success: boolean; session_id: number }>("/workouts/cardio", {
       method: "POST",
       body: JSON.stringify(data),
+    }),
+
+  updateWorkout: (id: number, data: { title?: string; notes?: string; duration_minutes?: number }) =>
+    fetcher<{ success: boolean }>(`/workouts/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteWorkout: (id: number) =>
+    fetcher<{ success: boolean }>(`/workouts/${id}`, {
+      method: "DELETE",
     }),
 }
 

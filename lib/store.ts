@@ -70,6 +70,7 @@ interface ActiveWorkoutState {
   isActive: boolean
   startTime: Date | null
   title: string
+  workoutDate: string | null
   exercises: ActiveExercise[]
   currentExerciseIndex: number
   currentSetIndex: number
@@ -77,7 +78,7 @@ interface ActiveWorkoutState {
   isResting: boolean
 
   // Actions
-  startWorkout: (title: string, exercises: Omit<ActiveExercise, "sets">[]) => void
+  startWorkout: (title: string, exercises: Omit<ActiveExercise, "sets">[], date?: string) => void
   endWorkout: () => void
   completeSet: (exerciseIndex: number, setIndex: number, reps: number, weight: number) => void
   updateSet: (exerciseIndex: number, setIndex: number, reps: number, weight: number) => void
@@ -97,17 +98,19 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set) => ({
   isActive: false,
   startTime: null,
   title: "",
+  workoutDate: null,
   exercises: [],
   currentExerciseIndex: 0,
   currentSetIndex: 0,
   restTimer: 0,
   isResting: false,
 
-  startWorkout: (title, exercises) =>
+  startWorkout: (title, exercises, date) =>
     set({
       isActive: true,
       startTime: new Date(),
       title,
+      workoutDate: date || null,
       exercises: exercises.map((ex) => ({
         ...ex,
         sets: Array.from({ length: ex.targetSets }, () => ({
@@ -125,6 +128,7 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set) => ({
       isActive: false,
       startTime: null,
       title: "",
+      workoutDate: null,
       exercises: [],
       currentExerciseIndex: 0,
       currentSetIndex: 0,
@@ -219,6 +223,7 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set) => ({
       isActive: false,
       startTime: null,
       title: "",
+      workoutDate: null,
       exercises: [],
       currentExerciseIndex: 0,
       currentSetIndex: 0,
