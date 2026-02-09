@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Sidebar, MobileNav, Header } from "@/components/layout"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 
 export default function DashboardLayout({
@@ -12,7 +11,6 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-background">
@@ -21,16 +19,6 @@ export default function DashboardLayout({
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
-
-      {/* Mobile Sidebar Sheet */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-[280px] p-0">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Navigation Menu</SheetTitle>
-          </SheetHeader>
-          <Sidebar />
-        </SheetContent>
-      </Sheet>
 
       {/* Main Content Area */}
       <div
@@ -41,9 +29,7 @@ export default function DashboardLayout({
             : "lg:pl-[var(--sidebar-width)]"
         )}
       >
-        <Header
-          onMenuClick={() => setMobileMenuOpen(true)}
-        />
+        <Header />
 
         <motion.main
           className="flex-1 p-4 pb-24 lg:p-6 lg:pb-6"

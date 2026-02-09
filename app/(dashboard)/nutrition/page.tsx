@@ -741,7 +741,7 @@ export default function NutritionPage() {
             <Button variant="outline" onClick={() => setEditingMeal(null)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEditMeal} disabled={savingEdit}>
+            <Button onClick={handleSaveEditMeal} disabled={savingEdit} className="cursor-pointer">
               {savingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Save Changes
             </Button>

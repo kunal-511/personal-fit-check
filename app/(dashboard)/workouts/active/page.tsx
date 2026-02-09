@@ -798,7 +798,7 @@ function ActiveWorkoutContent() {
               <GlassCard
                 key={i}
                 className={cn(
-                  "p-3 transition-all cursor-pointer hover:bg-white/[0.05]",
+                  "p-3 transition-all cursor-pointer hover:bg-white/5",
                   isCurrent && "ring-2 ring-primary"
                 )}
                 onClick={() => selectExercise(i)}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Menu, Calendar, ChevronLeft, ChevronRight, LogOut } from "lucide-react"
+import { Calendar, ChevronLeft, ChevronRight, LogOut } from "lucide-react"
 import { format, addDays, subDays } from "date-fns"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,12 +14,10 @@ import { cn } from "@/lib/utils"
 import { useAppStore } from "@/lib/store"
 
 interface HeaderProps {
-  onMenuClick?: () => void
   title?: string
 }
 
 export function Header({
-  onMenuClick,
   title,
 }: HeaderProps) {
   const router = useRouter()
@@ -51,16 +49,6 @@ export function Header({
       <div className="flex h-16 items-center justify-between px-4 lg:px-6">
         {/* Left side */}
         <div className="flex items-center gap-4">
-          {/* Mobile menu button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={onMenuClick}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-
           {/* Page title or date selector */}
           {title ? (
             <h1 className="text-lg font-semibold">{title}</h1>
