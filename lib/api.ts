@@ -218,6 +218,24 @@ export const workoutsApi = {
     fetcher<{ success: boolean }>(`/workouts/${id}`, {
       method: "DELETE",
     }),
+
+  addExercise: (workoutId: number, data: {
+    exercise_name: string
+    muscle_group?: string
+    sets: Array<{ reps: number; weight_kg: number; rpe?: number }>
+  }) =>
+    fetcher<{ success: boolean; exercise: { id: number; exercise_name: string; muscle_group: string | null; target_sets: number; sets_completed: number; weight_kg: number | null; notes: string | null } }>(
+      `/workouts/${workoutId}/exercises`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    ),
+
+  deleteExercise: (exerciseId: number) =>
+    fetcher<{ success: boolean }>(`/workouts/exercises/${exerciseId}`, {
+      method: "DELETE",
+    }),
 }
 
 // ============================================

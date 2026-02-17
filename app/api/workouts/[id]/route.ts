@@ -52,11 +52,12 @@ export async function GET(
       exercises.map(async (exercise) => {
         const sets = await sql`
           SELECT
+            id,
+            exercise_id,
             set_number,
             reps,
             weight_kg,
             rest_seconds,
-            rpe
           FROM exercise_sets
           WHERE exercise_id = ${exercise.id}
           ORDER BY set_number

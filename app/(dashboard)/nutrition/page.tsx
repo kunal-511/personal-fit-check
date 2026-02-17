@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Plus, Apple, Coffee, Moon, Sun, Trash2, Droplets, Loader2, Pencil, X as XIcon } from "lucide-react"
+import { Plus, Apple, Coffee, Moon, Sun, Trash2, Droplets, Loader2, Pencil, X as XIcon, Share2, Download } from "lucide-react"
+import html2canvas from "html2canvas"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,7 +22,8 @@ import { nutritionApi } from "@/lib/api"
 import { useAppStore, formatDateForApi } from "@/lib/store"
 import { format, isToday } from "date-fns"
 import Link from "next/link"
-import type { DailyNutrition } from "@/types"
+import type { DailyNutrition, Meal, FoodItem } from "@/types"
+import { ShareableNutritionCard } from "@/components/nutrition/ShareableNutritionCard"
 
 const mealIcons: Record<string, typeof Coffee> = {
   breakfast: Coffee,
@@ -35,6 +37,26 @@ const mealColors: Record<string, string> = {
   lunch: "orange",
   snack: "green",
   dinner: "purple",
+}
+
+type EditableFood = {
+  id: string
+  food_name: string
+  quantity: number
+  unit: string
+  calories: number
+  protein_g: number
+  carbs_g: number
+  fats_g: number
+}
+
+type MealFood = Partial<FoodItem> & {
+  food_name?: string
+  name?: string
+}
+
+type MealWithFoods = Meal & {
+  food_items?: MealFood[]
 }
 
 export default function NutritionPage() {
@@ -56,11 +78,13 @@ export default function NutritionPage() {
     fats_g: "60",
     water_ml: "4000",
   })
-  const [editingMeal, setEditingMeal] = useState<any | null>(null)
+  const [editingMeal, setEditingMeal] = useState<MealWithFoods | null>(null)
   const [editMealForm, setEditMealForm] = useState({
-    foods: [] as any[],
+    foods: [] as EditableFood[],
   })
   const [savingEdit, setSavingEdit] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [generatingImage, setGeneratingImage] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -132,12 +156,12 @@ export default function NutritionPage() {
   const remaining = goals.daily_calories - totals.calories
   const waterPercentage = Math.round((waterData.total / waterTarget) * 100)
 
-  const handleOpenEditMeal = (meal: any) => {
+  const handleOpenEditMeal = (meal: MealWithFoods) => {
     setEditingMeal(meal)
     setEditMealForm({
-      foods: (meal.food_items || []).map((f: any) => ({
+      foods: (meal.food_items || []).map((f) => ({
         id: crypto.randomUUID(),
-        food_name: f.food_name || f.name,
+        food_name: f.food_name || f.name || "",
         quantity: f.quantity || 1,
         unit: f.unit || "serving",
         calories: f.calories || 0,
@@ -199,6 +223,66 @@ export default function NutritionPage() {
     }
   }
 
+  const downloadImage = (canvas: HTMLCanvasElement) => {
+    const url = canvas.toDataURL("image/png")
+    const link = document.createElement("a")
+    link.download = `nutrition-${format(selectedDate, "yyyy-MM-dd")}.png`
+    link.href = url
+    link.click()
+    setShareDialogOpen(false)
+  }
+
+  const handleShare = async () => {
+    setGeneratingImage(true)
+    setShareDialogOpen(true)
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      const element = document.getElementById("shareable-nutrition-card")
+      if (!element) {
+        console.error("Shareable card element not found")
+        return
+      }
+
+      const canvas = await html2canvas(element, {
+        backgroundColor: null,
+        scale: 2,
+        logging: false,
+      })
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) return
+
+        const file = new File([blob], `nutrition-${format(selectedDate, "yyyy-MM-dd")}.png`, {
+          type: "image/png",
+        })
+
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: "My Nutrition Summary",
+              text: `Check out my nutrition for ${format(selectedDate, "MMMM d, yyyy")}`,
+            })
+            setShareDialogOpen(false)
+          } catch (error) {
+            if ((error as Error).name !== "AbortError") {
+              console.error("Error sharing:", error)
+              downloadImage(canvas)
+            }
+          }
+        } else {
+          downloadImage(canvas)
+        }
+      }, "image/png")
+    } catch (error) {
+      console.error("Failed to generate image:", error)
+    } finally {
+      setGeneratingImage(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -209,12 +293,18 @@ export default function NutritionPage() {
             {isToday(selectedDate) ? "Track your daily intake" : format(selectedDate, "EEEE, MMM d")}
           </p>
         </div>
-        <Link href="/nutrition/log">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Log Meal
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleShare}>
+            <Share2 className="mr-2 h-4 w-4" />
+            Share
           </Button>
-        </Link>
+          <Link href="/nutrition/log">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Log Meal
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* View Toggle */}
@@ -744,6 +834,60 @@ export default function NutritionPage() {
             <Button onClick={handleSaveEditMeal} disabled={savingEdit} className="cursor-pointer">
               {savingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Share Nutrition</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="overflow-hidden rounded-2xl">
+              <ShareableNutritionCard
+                date={selectedDate}
+                calories={totals.calories}
+                calorieGoal={goals.daily_calories}
+                protein={totals.protein}
+                proteinGoal={goals.protein_g}
+                carbs={totals.carbs}
+                carbsGoal={goals.carbs_g}
+                fats={totals.fats}
+                fatsGoal={goals.fats_g}
+                waterMl={waterData.total}
+                waterGoalMl={waterTarget}
+                meals={meals}
+              />
+            </div>
+            {generatingImage && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Generating image...</span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShareDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="cursor-pointer"
+              onClick={async () => {
+                const element = document.getElementById("shareable-nutrition-card")
+                if (!element) return
+                const canvas = await html2canvas(element, {
+                  backgroundColor: null,
+                  scale: 2,
+                  logging: false,
+                })
+                downloadImage(canvas)
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download Image
             </Button>
           </DialogFooter>
         </DialogContent>
