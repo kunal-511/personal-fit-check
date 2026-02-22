@@ -57,7 +57,7 @@ export async function GET(
             set_number,
             reps,
             weight_kg,
-            rest_seconds,
+            rest_seconds
           FROM exercise_sets
           WHERE exercise_id = ${exercise.id}
           ORDER BY set_number
