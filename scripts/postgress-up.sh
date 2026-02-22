@@ -19,4 +19,3 @@ psql \
   -f schema.sql
 
 echo "PostgreSQL is running on port 5432"
-claude --resume bef5d820-7f45-416a-80dd-154d0a98117c

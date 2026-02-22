@@ -82,7 +82,8 @@ export default function WorkoutsPage() {
         <Link href="/workouts/new">
           <Button>
             <Plus className="mr-2 h-4 w-4" />
-            New Workout
+            <span className="hidden sm:inline">New Workout</span>
+            <span className="sm:hidden">New</span>
           </Button>
         </Link>
       </div>

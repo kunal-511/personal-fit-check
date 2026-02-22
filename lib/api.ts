@@ -236,6 +236,19 @@ export const workoutsApi = {
     fetcher<{ success: boolean }>(`/workouts/exercises/${exerciseId}`, {
       method: "DELETE",
     }),
+
+  getCalendar: (month: string) =>
+    fetcher<{
+      workouts: Record<
+        string,
+        Array<{
+          id: number
+          title: string
+          workout_type: string
+          duration_minutes: number | null
+        }>
+      >
+    }>(`/workouts/calendar?month=${month}`),
 }
 
 // ============================================
