@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { ArrowLeft, Check, Plus, Trophy, History, Loader2, X, Trash2, Pencil, Download } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -66,6 +66,53 @@ interface CompletedSet {
   rpe?: number
 }
 
+type ExerciseHistoryApiResponse = {
+  exercise_name: string
+  sessions: Array<{
+    workout_id: number
+    date: string
+    workout_title: string
+    exercise_notes: string | null
+    sets: Array<{ set_number: number; weight_kg: number; reps: number; rpe: number | null }>
+    total_volume: number
+    max_weight: number
+  }>
+  personal_record: { weight: number; reps: number; date: string } | null
+  total_sessions: number
+}
+
+function formatSessionDate(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00")
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+function formatSessionDateFull(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00")
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+// ─── Draft persistence ────────────────────────────────────────────────────────
+const DRAFT_KEY = "workout_draft_v1"
+
+interface WorkoutDraft {
+  workoutTitle: string
+  exercises: Array<{ name: string; targetSets: number; lastWeight: number; lastReps: number[]; muscleGroup: string }>
+  completedSets: CompletedSet[][]
+  currentExercise: number
+  currentSet: number
+  workoutTime: number
+  savedAt: number
+}
+
+function formatDraftAge(savedAt: number): string {
+  const mins = Math.floor((Date.now() - savedAt) / 60000)
+  if (mins < 1) return "just now"
+  if (mins < 60) return `${mins} minute${mins !== 1 ? "s" : ""} ago`
+  const hrs = Math.floor(mins / 60)
+  return `${hrs} hour${hrs !== 1 ? "s" : ""} ago`
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function ActiveWorkoutContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -110,10 +157,67 @@ function ActiveWorkoutContent() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
   const [savedWorkoutId, setSavedWorkoutId] = useState<number | null>(null)
+  const [exerciseHistoryMap, setExerciseHistoryMap] = useState<Record<string, ExerciseHistoryApiResponse>>({})
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [draftPending, setDraftPending] = useState(false)
+  const [draftData, setDraftData] = useState<WorkoutDraft | null>(null)
+
+  // Always-fresh ref so event handlers never capture stale closure values
+  const latestRef = useRef({ workoutTitle, exercises, completedSets, currentExercise, currentSet, workoutTime, initialized })
+  latestRef.current = { workoutTitle, exercises, completedSets, currentExercise, currentSet, workoutTime, initialized }
+
+  // Check for a saved draft on first mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY)
+      if (!raw) return
+      const draft = JSON.parse(raw) as WorkoutDraft
+      const hasData = draft.completedSets?.some((s) => s.length > 0)
+      const isRecent = draft.savedAt && Date.now() - draft.savedAt < 24 * 60 * 60 * 1000
+      if (hasData && isRecent) {
+        setDraftData(draft)
+        setDraftPending(true)
+      } else {
+        localStorage.removeItem(DRAFT_KEY)
+      }
+    } catch {
+      localStorage.removeItem(DRAFT_KEY)
+    }
+  }, [])
+
+  // Auto-save draft to localStorage every time a set is logged/edited
+  useEffect(() => {
+    if (!initialized) return
+    if (!completedSets.some((s) => s.length > 0)) return
+    try {
+      const draft: WorkoutDraft = {
+        workoutTitle, exercises, completedSets, currentExercise, currentSet, workoutTime,
+        savedAt: Date.now(),
+      }
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+    } catch { /* localStorage full or unavailable */ }
+  }, [completedSets, workoutTitle]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Also save when the tab is hidden (e.g. Chrome suspends it on mobile)
+  useEffect(() => {
+    const save = () => {
+      const { workoutTitle, exercises, completedSets, currentExercise, currentSet, workoutTime, initialized } = latestRef.current
+      if (!initialized || !completedSets.some((s) => s.length > 0)) return
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          workoutTitle, exercises, completedSets, currentExercise, currentSet, workoutTime,
+          savedAt: Date.now(),
+        }))
+      } catch { /* ignore */ }
+    }
+    document.addEventListener("visibilitychange", save)
+    return () => document.removeEventListener("visibilitychange", save)
+  }, [])
 
   // Initialize workout based on template or store
   useEffect(() => {
     if (initialized) return
+    if (draftPending) return  // wait until user decides on the draft
 
     if (template && workoutTemplates[template]) {
       // Load from template
@@ -149,7 +253,7 @@ function ActiveWorkoutContent() {
     }
 
     setInitialized(true)
-  }, [template, isActive, storeTitle, storeExercises, initialized])
+  }, [template, isActive, storeTitle, storeExercises, initialized, draftPending])
 
   // Workout timer
   useEffect(() => {
@@ -158,6 +262,36 @@ function ActiveWorkoutContent() {
     }, 1000)
     return () => clearInterval(interval)
   }, [])
+
+  // Derive the current exercise name — used as the effect dependency so the fetch
+  // fires both when the user switches exercise AND when exercises first load
+  // (currentExercise stays 0 in both cases, so the index alone is not enough).
+  const currentExerciseName = exercises[currentExercise]?.name ?? ""
+
+  useEffect(() => {
+    if (!currentExerciseName) return
+    if (exerciseHistoryMap[currentExerciseName] !== undefined) return // already cached
+    setHistoryLoading(true)
+    workoutsApi
+      .getExerciseHistory(currentExerciseName, 5)
+      .then((data) => {
+        setExerciseHistoryMap((prev) => ({ ...prev, [currentExerciseName]: data }))
+        // Pre-fill weight from last session when no template weight is set
+        const lastWt = data.sessions[0]?.sets[0]?.weight_kg
+        if (lastWt && (weight === "0" || weight === "")) {
+          setWeight(lastWt.toString())
+        }
+      })
+      .catch(() => {
+        // History is optional — mark as loaded with empty result so we don't retry
+        setExerciseHistoryMap((prev) => ({
+          ...prev,
+          [currentExerciseName]: { exercise_name: currentExerciseName, sessions: [], personal_record: null, total_sessions: 0 },
+        }))
+      })
+      .finally(() => setHistoryLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentExerciseName])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -325,9 +459,30 @@ function ActiveWorkoutContent() {
     setExercises(newExercises)
   }
 
+  const handleResumeDraft = () => {
+    if (!draftData) return
+    setWorkoutTitle(draftData.workoutTitle)
+    setExercises(draftData.exercises)
+    setCompletedSets(draftData.completedSets)
+    setCurrentExercise(draftData.currentExercise)
+    setCurrentSet(draftData.currentSet)
+    setWorkoutTime(draftData.workoutTime)
+    setDraftPending(false)
+    setDraftData(null)
+    setInitialized(true)
+  }
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(DRAFT_KEY)
+    setDraftPending(false)
+    setDraftData(null)
+    // initialized is still false — the init effect will fire on next render
+  }
+
   const workoutDate = useActiveWorkoutStore((state) => state.workoutDate)
 
   const handleFinishWorkout = async () => {
+    localStorage.removeItem(DRAFT_KEY) // clear draft on successful finish
     // Don't save if no sets completed
     if (completedSetsCount === 0) {
       resetStore()
@@ -612,19 +767,39 @@ function ActiveWorkoutContent() {
       {/* Current Exercise or Empty State */}
       {!showRestTimer && exercises.length > 0 && exercise && (
         <GlassCard className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
+          <div className="flex items-start justify-between mb-4 gap-3">
+            <div className="flex-1 min-w-0">
               <h2 className="text-2xl font-bold">{exercise.name}</h2>
-              <p className="text-muted-foreground">
-                {exercise.lastWeight > 0
-                  ? `Last: ${exercise.lastWeight}kg × ${exercise.lastReps.join(", ")}`
-                  : exercise.muscleGroup}
-              </p>
+              {/* Inline last-session summary */}
+              {(() => {
+                const hist = exerciseHistoryMap[exercise.name]
+                const lastSess = hist?.sessions?.[0]
+                if (!hist && historyLoading) {
+                  return <p className="text-xs text-muted-foreground mt-1">Loading history…</p>
+                }
+                if (lastSess) {
+                  return (
+                    <p className="text-xs text-muted-foreground mt-1 truncate">
+                      <span className="text-primary/70">{formatSessionDate(lastSess.date)}</span>
+                      {" · "}
+                      {lastSess.sets.map((s, i) => (
+                        <span key={i}>
+                          {i > 0 && <span className="opacity-40"> · </span>}
+                          {s.weight_kg}×{s.reps}
+                        </span>
+                      ))}
+                    </p>
+                  )
+                }
+                return <p className="text-sm text-muted-foreground mt-0.5">{exercise.muscleGroup}</p>
+              })()}
             </div>
             <Button
               variant="ghost"
               size="icon"
+              className="shrink-0"
               onClick={() => setShowHistory(true)}
+              title="View exercise history"
             >
               <History className="h-5 w-5" />
             </Button>
@@ -704,9 +879,28 @@ function ActiveWorkoutContent() {
                 Add Set
               </Button>
             </div>
-            <p className="text-lg">
-              Target: <span className="font-bold">{exercise.lastReps[currentSet] || 10} reps</span>
-            </p>
+            {/* Per-set reference from last session */}
+            {(() => {
+              const lastSet = exerciseHistoryMap[exercise.name]?.sessions?.[0]?.sets?.[currentSet]
+              if (lastSet) {
+                return (
+                  <p className="text-sm text-muted-foreground">
+                    Last time:{" "}
+                    <span className="font-semibold text-foreground">
+                      {lastSet.weight_kg}kg × {lastSet.reps} reps
+                    </span>
+                    {lastSet.rpe && (
+                      <span className="text-xs text-muted-foreground ml-1">(RPE {lastSet.rpe})</span>
+                    )}
+                  </p>
+                )
+              }
+              return (
+                <p className="text-lg">
+                  Target: <span className="font-bold">{exercise.lastReps[currentSet] || 10} reps</span>
+                </p>
+              )
+            })()}
           </div>
 
           {/* Input */}
@@ -903,33 +1097,111 @@ function ActiveWorkoutContent() {
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Exercise History</DialogTitle>
+            <DialogTitle>{exercise?.name} — History</DialogTitle>
           </DialogHeader>
-          {exercise && (
-            <ExerciseHistory
-              data={{
-                exerciseName: exercise.name,
-                muscleGroup: exercise.muscleGroup,
-                sessions: [
-                  {
-                    id: "1",
-                    date: "Jan 14, 2026",
-                    workoutTitle: "Push Day",
-                    sets: [
-                      { setNumber: 1, weight: 80, reps: 9, rpe: 8 },
-                      { setNumber: 2, weight: 80, reps: 8, rpe: 8 },
-                      { setNumber: 3, weight: 77.5, reps: 9, rpe: 8.5 },
-                    ],
-                    totalVolume: 2092,
-                    maxWeight: 80,
-                  },
-                ],
-                personalRecord: { weight: 80, reps: 9, date: "Jan 14, 2026" },
-                totalSessions: 12,
-              }}
-              className="border-0 shadow-none p-0"
-            />
-          )}
+          {exercise && (() => {
+            const hist = exerciseHistoryMap[exercise.name]
+
+            // Still loading
+            if (!hist && historyLoading) {
+              return (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Loading history…</p>
+                </div>
+              )
+            }
+
+            // No sessions found
+            if (!hist || hist.sessions.length === 0) {
+              return (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+                  <History className="h-12 w-12 opacity-25" />
+                  <p className="font-medium">No history yet</p>
+                  <p className="text-sm text-center">
+                    Complete your first {exercise.name} set and it will appear here.
+                  </p>
+                </div>
+              )
+            }
+
+            // Map API response → ExerciseHistory component shape
+            const historyData = {
+              exerciseName: exercise.name,
+              muscleGroup: exercise.muscleGroup,
+              sessions: hist.sessions.map((s) => ({
+                id: s.workout_id.toString(),
+                date: formatSessionDateFull(s.date),
+                workoutTitle: s.workout_title,
+                sets: s.sets.map((set) => ({
+                  setNumber: set.set_number,
+                  weight: set.weight_kg,
+                  reps: set.reps,
+                  rpe: set.rpe ?? undefined,
+                })),
+                totalVolume: s.total_volume,
+                maxWeight: s.max_weight,
+                notes: s.exercise_notes ?? undefined,
+              })),
+              personalRecord: hist.personal_record
+                ? {
+                    weight: hist.personal_record.weight,
+                    reps: hist.personal_record.reps,
+                    date: formatSessionDateFull(hist.personal_record.date),
+                  }
+                : { weight: 0, reps: 0, date: "" },
+              totalSessions: hist.total_sessions,
+            }
+
+            return (
+              <ExerciseHistory
+                data={historyData}
+                className="border-0 shadow-none p-0"
+                onSessionClick={(id) => {
+                  setShowHistory(false)
+                  router.push(`/workouts/history/${id}`)
+                }}
+              />
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Draft Resume Dialog */}
+      <Dialog open={draftPending} onOpenChange={() => {}}>
+        <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Resume previous workout?</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              You have an unsaved workout from{" "}
+              <span className="font-medium text-foreground">
+                {draftData ? formatDraftAge(draftData.savedAt) : ""}
+              </span>
+              . Chrome may have refreshed the page.
+            </p>
+            {draftData && (
+              <div className="rounded-lg bg-secondary/50 p-3 space-y-1">
+                <p className="text-sm font-medium">{draftData.workoutTitle}</p>
+                <p className="text-xs text-muted-foreground">
+                  {draftData.exercises.length} exercise{draftData.exercises.length !== 1 ? "s" : ""}
+                  {" · "}
+                  {draftData.completedSets.reduce((a, s) => a + s.length, 0)} sets completed
+                  {" · "}
+                  {Math.round(draftData.workoutTime / 60)} min elapsed
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={handleDiscardDraft}>
+              Discard
+            </Button>
+            <Button className="flex-1" onClick={handleResumeDraft}>
+              Resume
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

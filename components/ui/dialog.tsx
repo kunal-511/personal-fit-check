@@ -81,8 +81,25 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function DialogContent({ className, children, ...props }: React.ComponentProps<"div">) {
+function DialogContent({
+  className,
+  children,
+  onPointerDownOutside,
+  ...props
+}: React.ComponentProps<"div"> & {
+  onPointerDownOutside?: (e: { preventDefault: () => void }) => void
+}) {
   const { onOpenChange } = useDialog()
+
+  const handleOverlayClick = () => {
+    if (onPointerDownOutside) {
+      let prevented = false
+      onPointerDownOutside({ preventDefault: () => { prevented = true } })
+      if (!prevented) onOpenChange(false)
+    } else {
+      onOpenChange(false)
+    }
+  }
 
   // Handle escape key
   React.useEffect(() => {
@@ -97,7 +114,15 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<"
 
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <div
+        data-slot="dialog-overlay"
+        className={cn(
+          "fixed inset-0 z-50 bg-transparent backdrop-blur-sm",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+        )}
+        onClick={handleOverlayClick}
+      />
       <div
         data-slot="dialog-content"
         role="dialog"

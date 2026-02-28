@@ -249,6 +249,24 @@ export const workoutsApi = {
         }>
       >
     }>(`/workouts/calendar?month=${month}`),
+
+  getExerciseHistory: (exerciseName: string, limit?: number) =>
+    fetcher<{
+      exercise_name: string
+      sessions: Array<{
+        workout_id: number
+        date: string
+        workout_title: string
+        exercise_notes: string | null
+        sets: Array<{ set_number: number; weight_kg: number; reps: number; rpe: number | null }>
+        total_volume: number
+        max_weight: number
+      }>
+      personal_record: { weight: number; reps: number; date: string } | null
+      total_sessions: number
+    }>(
+      `/workouts/exercise-history?exercise=${encodeURIComponent(exerciseName)}${limit ? `&limit=${limit}` : ""}`
+    ),
 }
 
 // ============================================
