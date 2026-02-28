@@ -262,12 +262,6 @@ export function ExerciseHistory({
                       ))}
                     </div>
 
-                    {/* Volume */}
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
-                      <span className="text-sm text-muted-foreground">Total Volume</span>
-                      <span className="text-sm font-medium">{session.totalVolume} kg</span>
-                    </div>
-
                     {/* Notes */}
                     {session.notes && (
                       <p className="mt-2 text-sm text-muted-foreground italic">

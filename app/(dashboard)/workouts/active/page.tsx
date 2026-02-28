@@ -82,12 +82,14 @@ type ExerciseHistoryApiResponse = {
 }
 
 function formatSessionDate(dateStr: string) {
-  const d = new Date(dateStr + "T00:00:00")
+  const normalized = dateStr.includes("T") ? dateStr : dateStr + "T00:00:00"
+  const d = new Date(normalized)
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
 function formatSessionDateFull(dateStr: string) {
-  const d = new Date(dateStr + "T00:00:00")
+  const normalized = dateStr.includes("T") ? dateStr : dateStr + "T00:00:00"
+  const d = new Date(normalized)
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
