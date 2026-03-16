@@ -7,6 +7,11 @@ if (!connectionString) {
   throw new Error("DATABASE_URL environment variable is not set")
 }
 
+if (process.env.NODE_ENV === "development") {
+  const urlForLog = connectionString.replace(/:([^:@]+)@/, ":****@")
+  console.log(`[db] connecting to: ${urlForLog}`)
+}
+
 // For serverless environments, we use a connection pool
 const sql = postgres(connectionString, {
   max: 10, // Max connections in pool

@@ -80,6 +80,8 @@ export default function NutritionPage() {
   })
   const [editingMeal, setEditingMeal] = useState<MealWithFoods | null>(null)
   const [editMealForm, setEditMealForm] = useState({
+    meal_type: "breakfast" as string,
+    meal_name: "" as string,
     foods: [] as EditableFood[],
   })
   const [savingEdit, setSavingEdit] = useState(false)
@@ -159,6 +161,8 @@ export default function NutritionPage() {
   const handleOpenEditMeal = (meal: MealWithFoods) => {
     setEditingMeal(meal)
     setEditMealForm({
+      meal_type: meal.meal_type || "breakfast",
+      meal_name: meal.meal_name || "",
       foods: (meal.food_items || []).map((f) => ({
         id: crypto.randomUUID(),
         food_name: f.food_name || f.name || "",
@@ -178,6 +182,8 @@ export default function NutritionPage() {
     try {
       await nutritionApi.updateMeal({
         id: editingMeal.id,
+        meal_type: editMealForm.meal_type,
+        meal_name: editMealForm.meal_name || editMealForm.meal_type,
         food_items: editMealForm.foods.map(f => ({
           food_name: f.food_name,
           quantity: f.quantity,
@@ -673,6 +679,39 @@ export default function NutritionPage() {
             <DialogTitle>Edit Meal</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Meal Timing</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {(["breakfast", "lunch", "snack", "dinner"] as const).map((type) => {
+                  const Icon = mealIcons[type]
+                  const isSelected = editMealForm.meal_type === type
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => {
+                        const standardNames = ["breakfast", "lunch", "snack", "dinner"]
+                        const isDefaultName = standardNames.includes(editMealForm.meal_name.toLowerCase())
+                        setEditMealForm({
+                          ...editMealForm,
+                          meal_type: type,
+                          meal_name: isDefaultName ? type : editMealForm.meal_name,
+                        })
+                      }}
+                      className={cn(
+                        "flex flex-col items-center gap-1.5 rounded-lg border p-3 text-xs font-medium transition-colors capitalize",
+                        isSelected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border/50 bg-secondary/30 text-muted-foreground hover:bg-secondary/60"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {type}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Food Items</Label>
               <div className="space-y-3">
