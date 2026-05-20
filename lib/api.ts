@@ -89,6 +89,7 @@ export const nutritionApi = {
         protein: number
         carbs: number
         fats: number
+        fiber?: number
         confidence: number
       }>
       totals?: {
@@ -98,10 +99,45 @@ export const nutritionApi = {
         fats: number
       }
       parsed_text?: string
+      source?: string
     }>("/nutrition/parse", {
       method: "POST",
       body: JSON.stringify({ text }),
     }),
+
+  parseFoodImage: async (file: File) => {
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+    return fetcher<{
+      success: boolean
+      message?: string
+      foods: Array<{
+        name: string
+        quantity: number
+        unit: string
+        calories: number
+        protein: number
+        carbs: number
+        fats: number
+        fiber?: number
+        confidence: number
+      }>
+      totals?: {
+        calories: number
+        protein: number
+        carbs: number
+        fats: number
+      }
+      source?: string
+    }>("/nutrition/parse", {
+      method: "POST",
+      body: JSON.stringify({ image: base64, mimeType: file.type }),
+    })
+  },
 
   getFrequentFoods: (limit = 6, meal_type?: string) =>
     fetcher<{

@@ -14,6 +14,36 @@ export interface UserProfile {
 }
 
 // ============================================
+// AI Parser Types
+// ============================================
+
+export interface ParsedFood {
+  name: string
+  quantity: number
+  unit: string
+  calories: number
+  protein: number
+  carbs: number
+  fats: number
+  fiber?: number
+  confidence: number
+}
+
+export interface ParseResult {
+  success: boolean
+  foods: ParsedFood[]
+  totals?: {
+    calories: number
+    protein: number
+    carbs: number
+    fats: number
+  }
+  parsed_text?: string
+  source: "openai-text" | "openai-vision" | "anthropic-text" | "anthropic-vision" | "xai-text" | "xai-vision" | "fallback"
+  message?: string
+}
+
+// ============================================
 // Nutrition Types
 // ============================================
 

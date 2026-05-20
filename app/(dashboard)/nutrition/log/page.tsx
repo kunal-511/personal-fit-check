@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Plus, Trash2, Loader2, Check, Sparkles, Send, Calendar } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Loader2, Check, Sparkles, Send, Calendar, ImagePlus, X } from "lucide-react"
 import Link from "next/link"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -76,10 +76,19 @@ function LogMealPageContent() {
   const [frequentFoods, setFrequentFoods] = useState<FrequentFood[]>([])
   const [frequentLoading, setFrequentLoading] = useState(true)
 
-  // AI Food Parser
+  // AI Food Parser — text
   const [aiInput, setAiInput] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState("")
+
+  // AI Food Parser — image
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imageLoading, setImageLoading] = useState(false)
+  const [imageError, setImageError] = useState("")
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const dragCounterRef = useRef(0)
 
   useEffect(() => {
     let mounted = true
@@ -133,6 +142,95 @@ function LogMealPageContent() {
       setAiError("Failed to parse food. Please try again.")
     } finally {
       setAiLoading(false)
+    }
+  }
+
+  const loadImageFile = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setImageError("Please drop an image file (JPG, PNG, WEBP, etc.)")
+      return
+    }
+    setImageFile(file)
+    setImageError("")
+    const reader = new FileReader()
+    reader.onload = () => setImagePreview(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    loadImageFile(file)
+  }
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current++
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true)
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current--
+    if (dragCounterRef.current === 0) setIsDragging(false)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current = 0
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (!file) return
+    loadImageFile(file)
+  }
+
+  const clearImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
+    setImageError("")
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }
+
+  const handleImageParse = async () => {
+    if (!imageFile) return
+
+    setImageLoading(true)
+    setImageError("")
+
+    try {
+      const result = await nutritionApi.parseFoodImage(imageFile)
+
+      if (result.success && result.foods.length > 0) {
+        result.foods.forEach((food) => {
+          addFood({
+            name: food.name,
+            quantity: food.quantity,
+            unit: food.unit,
+            calories: food.calories,
+            protein: food.protein,
+            carbs: food.carbs,
+            fats: food.fats,
+            source: "parsed",
+          })
+        })
+        clearImage()
+      } else {
+        setImageError(result.message || "Could not identify foods in the image. Try a clearer photo.")
+      }
+    } catch {
+      setImageError("Failed to analyse image. Please try again.")
+    } finally {
+      setImageLoading(false)
     }
   }
 
@@ -367,6 +465,8 @@ function LogMealPageContent() {
           <Sparkles className="h-5 w-5 text-primary" />
           <h2 className="font-semibold">AI Food Parser</h2>
         </div>
+
+        {/* Text parser */}
         <p className="text-sm text-muted-foreground mb-3">
           Describe what you ate in natural language
         </p>
@@ -395,6 +495,88 @@ function LogMealPageContent() {
         <p className="text-xs text-muted-foreground mt-2">
           Try: &quot;2 eggs with toast&quot;, &quot;protein shake&quot;, &quot;150g salmon with sweet potato&quot;
         </p>
+
+        {/* Divider */}
+        <div className="flex items-center gap-2 my-4">
+          <div className="flex-1 h-px bg-border/50" />
+          <span className="text-xs text-muted-foreground">or</span>
+          <div className="flex-1 h-px bg-border/50" />
+        </div>
+
+        {/* Image parser */}
+        <p className="text-sm text-muted-foreground mb-3">
+          Upload a photo of your meal
+        </p>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageSelect}
+        />
+
+        {!imagePreview ? (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className={cn(
+              "w-full flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed py-6 transition-colors",
+              isDragging
+                ? "border-primary bg-primary/10 text-primary scale-[1.01]"
+                : "border-border/60 text-muted-foreground hover:border-primary/50 hover:text-primary"
+            )}
+          >
+            <ImagePlus className={cn("h-6 w-6 transition-transform", isDragging && "scale-110")} />
+            <span className="text-sm">
+              {isDragging ? "Drop your image here" : "Drag & drop or click to upload"}
+            </span>
+            <span className="text-xs opacity-70">JPG, PNG, WEBP up to 20 MB</span>
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <div className="relative rounded-lg overflow-hidden border border-border/50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imagePreview}
+                alt="Meal preview"
+                className="w-full max-h-48 object-cover"
+              />
+              <button
+                type="button"
+                onClick={clearImage}
+                className="absolute top-2 right-2 rounded-full bg-background/80 p-1 text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <Button
+              className="w-full"
+              onClick={handleImageParse}
+              disabled={imageLoading}
+            >
+              {imageLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Analysing image...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Parse Nutrition from Image
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {imageError && (
+          <p className="text-sm text-destructive mt-2">{imageError}</p>
+        )}
       </GlassCard>
 
       {/* Added Foods */}
