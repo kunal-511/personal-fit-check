@@ -40,6 +40,11 @@ interface MobileNavProps {
 
 export function MobileNav({ onAddClick }: MobileNavProps) {
   const pathname = usePathname()
+  const addHref = pathname.startsWith("/workouts")
+    ? "/workouts/new"
+    : pathname.startsWith("/health")
+      ? "/health/body"
+      : "/nutrition/log"
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 bg-card/80 backdrop-blur-xl pb-safe lg:hidden">
@@ -50,16 +55,31 @@ export function MobileNav({ onAddClick }: MobileNavProps) {
             : pathname.startsWith(item.href)
 
           if (item.isAction) {
-            return (
+            const actionClassName = "flex flex-col items-center justify-center"
+            const actionContent = (
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/25 transition-transform hover:scale-105 active:scale-95">
+                <item.icon className="h-6 w-6 text-primary-foreground" />
+              </div>
+            )
+
+            return onAddClick ? (
               <button
                 key={item.title}
                 onClick={onAddClick}
-                className="flex flex-col items-center justify-center"
+                className={actionClassName}
+                aria-label="Add"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/25 transition-transform hover:scale-105 active:scale-95">
-                  <item.icon className="h-6 w-6 text-primary-foreground" />
-                </div>
+                {actionContent}
               </button>
+            ) : (
+              <Link
+                key={item.title}
+                href={addHref}
+                className={actionClassName}
+                aria-label="Add"
+              >
+                {actionContent}
+              </Link>
             )
           }
 

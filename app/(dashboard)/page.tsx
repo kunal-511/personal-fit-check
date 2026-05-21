@@ -10,6 +10,7 @@ import { cn, getGreeting, formatNumber, formatDate } from "@/lib/utils"
 import { nutritionApi, workoutsApi, healthApi } from "@/lib/api"
 import { useAppStore, formatDateForApi } from "@/lib/store"
 import { format, isToday } from "date-fns"
+import { NutritionCharts } from "@/components/nutrition/NutritionCharts"
 import type { DailyNutrition, Workout } from "@/types"
 
 interface DashboardData {
@@ -350,6 +351,9 @@ export default function DashboardPage() {
           )}
         </GlassCard>
       </div>
+
+      {/* Nutrition Trend Charts */}
+      <NutritionCharts />
 
       {/* Recent Activity */}
       <GlassCard className="p-6">

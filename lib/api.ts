@@ -175,6 +175,21 @@ export const nutritionApi = {
       method: "POST",
       body: JSON.stringify(goals),
     }),
+
+  getNutritionHistory: (days = 7) =>
+    fetcher<{
+      history: Array<{
+        date: string
+        day: string
+        shortDate: string
+        calories: number
+        protein: number
+        carbs: number
+        fats: number
+      }>
+      goals: { calories: number; protein: number; carbs: number; fats: number }
+      averages: { calories: number; protein: number; carbs: number; fats: number }
+    }>(`/nutrition/history?days=${days}`),
 }
 
 // ============================================
