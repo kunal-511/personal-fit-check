@@ -6,7 +6,6 @@ import Link from "next/link"
 import { GlassCard } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn, formatDate } from "@/lib/utils"
 import { workoutsApi } from "@/lib/api"
@@ -26,7 +25,6 @@ export default function WorkoutsPage() {
   const dateStr = formatDateForApi(selectedDate)
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedTab, setSelectedTab] = useState("overview")
   const [frequentExercises, setFrequentExercises] = useState<Array<{
     exercise_name: string
     muscle_group: string | null
@@ -88,15 +86,7 @@ export default function WorkoutsPage() {
         </Link>
       </div>
 
-      {/* View Toggle */}
-      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="w-full max-w-md">
-          <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
-          <TabsTrigger value="history" className="flex-1">History</TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6 mt-6">
+      <div className="space-y-6 mt-6">
           {/* Weekly Progress */}
           <GlassCard className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -210,10 +200,6 @@ export default function WorkoutsPage() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold">Recent Workouts</h2>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedTab("history")}>
-                  View all
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </Button>
               </div>
               <div className="space-y-3">
                 {workouts.slice(0, 3).map((workout) => (
@@ -240,31 +226,7 @@ export default function WorkoutsPage() {
               </div>
             </GlassCard>
           )}
-        </TabsContent>
-
-        {/* History Tab */}
-        <TabsContent value="history" className="space-y-6 mt-6">
-          <h2 className="font-semibold">All Workouts</h2>
-
-          {workouts.length > 0 ? (
-            <div className="space-y-3">
-              {workouts.map((workout) => (
-                <WorkoutCard key={workout.id} workout={workout} />
-              ))}
-            </div>
-          ) : (
-            <GlassCard className="p-12">
-              <div className="flex flex-col items-center justify-center">
-                <Dumbbell className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">No workout history</p>
-                <Link href="/workouts/new" className="mt-2 text-sm text-primary hover:underline">
-                  Log your first workout
-                </Link>
-              </div>
-            </GlassCard>
-          )}
-        </TabsContent>
-      </Tabs>
+      </div>
     </div>
   )
 }

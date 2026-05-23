@@ -24,6 +24,7 @@ import { format, isToday } from "date-fns"
 import Link from "next/link"
 import type { DailyNutrition, Meal, FoodItem } from "@/types"
 import { ShareableNutritionCard } from "@/components/nutrition/ShareableNutritionCard"
+import { NutritionCharts } from "@/components/nutrition/NutritionCharts"
 
 const mealIcons: Record<string, typeof Coffee> = {
   breakfast: Coffee,
@@ -658,17 +659,9 @@ export default function NutritionPage() {
           </div>
         </TabsContent>
 
-        {/* Week View - Coming Soon placeholder */}
+        {/* Week View */}
         <TabsContent value="week" className="space-y-6 mt-6">
-          <GlassCard className="p-12">
-            <div className="flex flex-col items-center justify-center">
-              <p className="text-lg font-medium mb-2">Weekly View</p>
-              <p className="text-sm text-muted-foreground text-center">
-                Weekly nutrition tracking will show your progress over the past 7 days.
-                <br />Start logging meals to see your weekly trends!
-              </p>
-            </div>
-          </GlassCard>
+          <NutritionCharts />
         </TabsContent>
       </Tabs>
 

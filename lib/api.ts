@@ -1,5 +1,6 @@
 import type {
   DailyNutrition,
+  Meal,
   MealFormData,
   Workout,
   WorkoutFormData,
@@ -34,6 +35,11 @@ export const nutritionApi = {
   getDaily: (date?: string) =>
     fetcher<DailyNutrition>(
       `/nutrition/daily${date ? `?date=${date}` : ""}`
+    ),
+
+  getRecentMeals: (limit = 5) =>
+    fetcher<{ meals: Array<Pick<Meal, "id" | "date" | "meal_type" | "meal_name" | "notes" | "logged_at" | "totals">> }>(
+      `/nutrition/recent?limit=${limit}`
     ),
 
   logMeal: (data: MealFormData & { date?: string }) =>

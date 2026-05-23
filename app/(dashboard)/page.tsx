@@ -11,12 +11,13 @@ import { nutritionApi, workoutsApi, healthApi } from "@/lib/api"
 import { useAppStore, formatDateForApi } from "@/lib/store"
 import { format, isToday } from "date-fns"
 import { NutritionCharts } from "@/components/nutrition/NutritionCharts"
-import type { DailyNutrition, Workout } from "@/types"
+import type { DailyNutrition, Meal, Workout } from "@/types"
 
 interface DashboardData {
   nutrition: DailyNutrition | null
   water: { total: number; target: number }
   workouts: Workout[]
+  recentMeals: Array<Pick<Meal, "id" | "date" | "meal_type" | "meal_name" | "notes" | "logged_at" | "totals">>
   health: {
     weight: number | null
     weightChange: number | null
@@ -34,10 +35,11 @@ export default function DashboardPage() {
   const fetchDashboardData = useCallback(async () => {
     setLoading(true)
     try {
-      const [nutritionRes, waterRes, workoutsRes, healthRes] = await Promise.all([
+      const [nutritionRes, waterRes, workoutsRes, recentMealsRes, healthRes] = await Promise.all([
         nutritionApi.getDaily(dateStr).catch(() => null),
         nutritionApi.getWater(dateStr).catch(() => ({ total: 0, logs: [] })),
         workoutsApi.getAll(5).catch(() => ({ workouts: [] })),
+        nutritionApi.getRecentMeals(5).catch(() => ({ meals: [] })),
         healthApi.getBodyMetrics(30).catch(() => ({ latest: null, changes: null })),
       ])
 
@@ -51,6 +53,7 @@ export default function DashboardPage() {
           target: nutritionRes?.goals?.water_ml || 4000,
         },
         workouts: workoutsRes?.workouts || [],
+        recentMeals: recentMealsRes?.meals || [],
         health: {
           weight: healthRes?.latest?.weight_kg || null,
           weightChange: healthRes?.changes?.weight || null,
@@ -81,6 +84,7 @@ export default function DashboardPage() {
   }
   const water = data?.water || { total: 0, target: 4000 }
   const workouts = data?.workouts || []
+  const recentMeals = data?.recentMeals || []
   const health = data?.health || { weight: null, weightChange: null, recovery: null, sleep: null }
 
   const caloriePercentage = Math.round((nutrition.totals.calories / (nutrition.goals.daily_calories || 1900)) * 100)
@@ -91,6 +95,48 @@ export default function DashboardPage() {
     weekAgo.setDate(weekAgo.getDate() - 7)
     return workoutDate >= weekAgo
   }).length
+
+  // Build a robust, unified recent activity list from workouts + meals.
+  // This guards against nullable DB fields (e.g. meal_type) and keeps the feed chronologically sorted.
+  const recentActivities = [
+    ...workouts.map((workout) => {
+      const activityDate = new Date(workout.completed_at || workout.started_at || workout.date)
+      const isValidDate = Number.isFinite(activityDate.getTime())
+      const workoutTitle = (workout.title || "").trim() || "Workout"
+      const workoutType = (workout.workout_type || "workout").toString()
+      const duration = Number.isFinite(workout.duration_minutes) ? workout.duration_minutes : 0
+
+      return {
+        id: `workout-${workout.id}`,
+        icon: <Dumbbell className="h-4 w-4" />,
+        title: workoutTitle,
+        subtitle: `${duration} min - ${workoutType}`,
+        time: isValidDate ? (isToday(activityDate) ? "Today" : formatDate(activityDate)) : "Recently",
+        sortTime: isValidDate ? activityDate.getTime() : 0,
+      }
+    }),
+    ...recentMeals.map((meal) => {
+      const activityDate = new Date(meal.logged_at || meal.date || "")
+      const isValidDate = Number.isFinite(activityDate.getTime())
+      const rawMealType = typeof meal.meal_type === "string" ? meal.meal_type.trim() : ""
+      const mealTypeLabel = rawMealType
+        ? rawMealType.charAt(0).toUpperCase() + rawMealType.slice(1)
+        : "Meal"
+      const mealName = (meal.meal_name || "").trim()
+      const calories = Math.round(Number(meal.totals?.calories ?? 0))
+
+      return {
+        id: `meal-${meal.id}`,
+        icon: <Utensils className="h-4 w-4" />,
+        title: mealName ? `${mealTypeLabel}: ${mealName}` : mealTypeLabel,
+        subtitle: `${calories} cal`,
+        time: isValidDate ? (isToday(activityDate) ? "Today" : formatDate(activityDate)) : "Recently",
+        sortTime: isValidDate ? activityDate.getTime() : 0,
+      }
+    }),
+  ]
+    .sort((a, b) => b.sortTime - a.sortTime)
+    .slice(0, 5)
 
   return (
     <div className="space-y-6">
@@ -360,24 +406,15 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold">Recent Activity</h2>
         </div>
-        {workouts.length > 0 || nutrition.meals.length > 0 ? (
+        {recentActivities.length > 0 ? (
           <div className="space-y-3">
-            {workouts.slice(0, 3).map((workout) => (
+            {recentActivities.map((item) => (
               <ActivityItem
-                key={workout.id}
-                icon={<Dumbbell className="h-4 w-4" />}
-                title={workout.title}
-                subtitle={`${workout.duration_minutes || 0} min - ${workout.workout_type}`}
-                time={formatDate(workout.date)}
-              />
-            ))}
-            {nutrition.meals.slice(0, 2).map((meal) => (
-              <ActivityItem
-                key={meal.id}
-                icon={<Utensils className="h-4 w-4" />}
-                title={`${meal.meal_type.charAt(0).toUpperCase() + meal.meal_type.slice(1)}: ${meal.meal_name || "Meal"}`}
-                subtitle={`${Math.round(meal.totals?.calories || 0)} cal`}
-                time="Today"
+                key={item.id}
+                icon={item.icon}
+                title={item.title}
+                subtitle={item.subtitle}
+                time={item.time}
               />
             ))}
           </div>
