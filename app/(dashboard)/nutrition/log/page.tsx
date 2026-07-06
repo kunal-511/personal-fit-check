@@ -415,7 +415,7 @@ function LogMealPageContent() {
 
   return (
     // Extra bottom padding on mobile so sticky save bar doesn't overlap content
-    <div className="space-y-4 sm:space-y-6 pb-28 sm:pb-6">
+    <div className="space-y-4 sm:space-y-6 pb-40 sm:pb-6">
 
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -860,8 +860,11 @@ function LogMealPageContent() {
         </Button>
       </div>
 
-      {/* Mobile sticky save bar */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe-area-inset-bottom">
+      {/* Mobile sticky save bar — positioned above MobileNav (4rem content + safe area) */}
+      <div
+        className="sm:hidden fixed left-0 right-0 z-50 px-4"
+        style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom, 1rem))' }}
+      >
         <div className="py-3 bg-background/80 backdrop-blur-md border-t border-border/50">
           <Button
             className="w-full touch-manipulation"
